@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finnish Story Generator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Finnish Story Generator</h1>
+            <p>Create beautiful A1/A2 language learning stories with AI.</p>
+        </header>
+
+        <main>
+            <div class="controls">
+                <div class="level-selector">
+                    <label for="levelSelect">Difficulty Level:</label>
+                    <select id="levelSelect">
+                        <option value="Beginner">Beginner (A1-A2)</option>
+                        <option value="Intermediate">Intermediate (B1-B2)</option>
+                        <option value="Advanced">Advanced (C1-C2)</option>
+                    </select>
+                </div>
+                <button id="generateBtn" onclick="startGeneration()">
+                    <span class="icon">✨</span> Generate New Story
+                </button>
+                <div id="status" class="status-badge hidden">Ready</div>
+            </div>
+
+            <div id="progressContainer" class="hidden">
+                <div class="progress-bar">
+                    <div class="progress-fill"></div>
+                </div>
+                <p id="logMessage">Initializing...</p>
+            </div>
+
+            <div id="storyContainer" class="story-grid hidden">
+                <!-- Story cards will be injected here -->
+            </div>
+
+            <div id="downloadSection" class="hidden">
+                <a href="/output/story.pdf" target="_blank" class="download-btn">
+                    Download PDF Book 📥
+                </a>
+            </div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+
+</html>
