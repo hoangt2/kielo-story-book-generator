@@ -1,11 +1,12 @@
 # Prompts for Finnish Story Generator
 
-def get_story_prompt(level="Beginner"):
+def get_story_prompt(level="Beginner", previous_stories=None):
     """
-    Generate a story prompt based on the difficulty level.
+    Generate a story prompt based on the difficulty level and history.
     
     Args:
         level: "Beginner", "Intermediate", or "Advanced"
+        previous_stories: List of dicts containing info about past stories.
     """
     
     level_constraints = {
@@ -40,12 +41,33 @@ def get_story_prompt(level="Beginner"):
     
     constraints = level_constraints.get(level, level_constraints["Beginner"])
     
+    # Build history context
+    history_context = ""
+    if previous_stories:
+        history_list = "\n".join([f"- {s.get('title_en')} (Characters: {', '.join(s.get('characters', []))})" for s in previous_stories])
+        history_context = f"""
+**AVOID REPETITION:**
+The following stories have already been generated. DO NOT repeat these exact plots, titles, or character combinations.
+{history_list}
+
+**BE CREATIVE:**
+- The story is about daily situation, not a fairy tale.
+- The story is engaging and interesting, with Finnish culture and traditions.
+- Add some humor to the story.
+- Use different locations: A library, a market square, a forest, a sauna, a train station, a summer cottage, at home etc.
+- Create diverse characters: Different ages, backgrounds, professions, foreigners, immigrants, etc.
+- Use different story types: Simple narrative, character development, plot twists, moral lessons.
+- There can be animals in the story to make it more interesting.
+"""
+
     return f"""
-You are a Finnish language learning content creator. Your goal is to generate an engaging story for {level} level learners.
+You are a Finnish language learning content creator. Your goal is to generate an engaging and UNIQUE story for {level} level learners.
+
+{history_context}
 
 {constraints}
-7.  **Setting:** A REAL, specific location in a Finnish city (e.g., Helsinki, Tampere, Turku, Oulu).
-8.  **Length:** Exactly 8 pages.
+7.  **Setting:** A REAL, specific location in Finland (e.g., Helsinki, Tampere, Turku, Oulu, Rovaniemi, Porvoo, at home, at school, at work, etc.).
+8.  **Length:** About 10 pages (can be 8 - 12 pages)
 9.  **Format:** Return ONLY a valid JSON object.
 
 **CRITICAL INSTRUCTION: VISUAL CONSISTENCY**

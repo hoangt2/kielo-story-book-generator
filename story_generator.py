@@ -19,12 +19,24 @@ if not GOOGLE_API_KEY:
 
 genai.configure(api_key=GOOGLE_API_KEY)
 
+from grammar_checker import check_grammar
+from history_manager import load_history, save_to_history
+from cleanup import cleanup
+
 def generate_story_concept(level="Beginner"):
     """Generates the story structure using Gemini Pro."""
     print(f"Generating story concept for {level} level...")
+    
+    # Load history
+    history = load_history()
+    
     model = genai.GenerativeModel('gemini-2.0-flash')
     from prompts import get_story_prompt
-    response = model.generate_content(get_story_prompt(level))
+    
+    # Pass history to prompt
+    prompt = get_story_prompt(level, previous_stories=history)
+    
+    response = model.generate_content(prompt)
     
     try:
         # Clean up markdown code blocks if present
@@ -35,6 +47,54 @@ def generate_story_concept(level="Beginner"):
         print("Error: Failed to parse JSON from Gemini response.")
         print("Raw response:", response.text)
         return None
+
+def main(status_callback=None, level="Beginner", max_retries=3):
+    def log(message):
+        print(message)
+        if status_callback:
+            status_callback(message)
+
+    parser = argparse.ArgumentParser(description="Finnish Story Generator")
+    parser.add_argument("--output_dir", default="output", help="Directory to save results")
+    parser.add_argument("--level", default=level, choices=["Beginner", "Intermediate", "Advanced"], help="Language difficulty level")
+    parser.add_argument("--max_retries", type=int, default=max_retries, help="Maximum number of retries for grammar check")
+    
+    # Check if running from script or module
+    try:
+        args = parser.parse_args()
+    except:
+        # Create a dummy namespace if parsing fails (e.g. when called from app.py)
+        args = argparse.Namespace(output_dir="output", level=level, max_retries=max_retries)
+
+    # Clean up old output before starting
+    log("Cleaning up previous output...")
+    cleanup(args.output_dir)
+
+    # 1. Generate Story with Retry Loop
+    for attempt in range(1, args.max_retries + 1):
+        log(f"Generating story concept for {args.level} level (Attempt {attempt}/{args.max_retries})...")
+        
+        story = generate_story_concept(level=args.level)
+        if not story:
+            log("Failed to generate story concept. Retrying...")
+            continue
+            
+        # 2. Verify Grammar
+        log("Verifying grammar...")
+        is_valid, feedback = check_grammar(story)
+        
+        if is_valid:
+            log("Grammar check passed!")
+            
+            process_story(story, args.output_dir, status_callback)
+            return True  # Success
+        else:
+            log(f"Grammar check failed: {feedback}")
+            log("Retrying generation...")
+            time.sleep(1)
+            
+    log("Max retries reached. Failed to generate a grammatically correct story.")
+    return False  # Failed
 
 def generate_character_model(description, output_path):
     """Generates a character model sheet for consistency."""
@@ -114,38 +174,25 @@ def generate_image(prompt, output_path, character_description="", reference_imag
         print("Created placeholder image due to API error.")
         return True
 
-def main(status_callback=None, level="Beginner"):
+def process_story(story, output_dir="output", status_callback=None):
+    """
+    Processes a generated story concept: generates images, cards, and PDF.
+    """
     def log(message):
         print(message)
         if status_callback:
             status_callback(message)
 
-    parser = argparse.ArgumentParser(description="Finnish Story Generator")
-    parser.add_argument("--output_dir", default="output", help="Directory to save results")
-    parser.add_argument("--level", default=level, choices=["Beginner", "Intermediate", "Advanced"], help="Language difficulty level")
-    # Check if running from script or module
-    try:
-        args = parser.parse_args()
-    except:
-        args = parser.parse_args([])
-
     # Create main output directory and subdirectories
     dirs = {
-        "root": args.output_dir,
-        "images": os.path.join(args.output_dir, "images"),
-        "cards": os.path.join(args.output_dir, "cards"),
-        "data": os.path.join(args.output_dir, "data")
+        "root": output_dir,
+        "images": os.path.join(output_dir, "images"),
+        "cards": os.path.join(output_dir, "cards"),
+        "data": os.path.join(output_dir, "data")
     }
     
     for d in dirs.values():
         os.makedirs(d, exist_ok=True)
-
-    # 1. Generate Story
-    log(f"Generating story concept for {args.level} level...")
-    story = generate_story_concept(level=args.level)
-    if not story:
-        log("Failed to generate story concept.")
-        return
 
     print(f"Story Title: {story.get('title_fi')} / {story.get('title_en')}")
     
@@ -216,5 +263,8 @@ def main(status_callback=None, level="Beginner"):
     pdf_path = os.path.join(dirs["root"], "story.pdf")
     compile_to_pdf(dirs["cards"], pdf_path)
     log("All done! PDF created.")
+
+
+
 if __name__ == "__main__":
     main()

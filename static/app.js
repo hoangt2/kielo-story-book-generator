@@ -98,6 +98,22 @@ function loadStory() {
         });
 }
 
+function archiveStory() {
+    fetch('/api/archive', { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert('Error archiving story: ' + data.error);
+            } else {
+                alert('Story saved to archive!');
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Failed to connect to server.');
+        });
+}
+
 // Load existing story on startup if available
 window.addEventListener('DOMContentLoaded', () => {
     fetch('/api/story')
