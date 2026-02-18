@@ -4,8 +4,10 @@ An AI-powered tool that generates illustrated Finnish language learning stories 
 
 ## Features
 
-- 🎨 **AI-Generated Stories**: Creates unique 8-page stories set in real Finnish cities
+- 🎨 **AI-Generated Stories**: Creates unique stories set in real Finnish cities
 - 📚 **Multiple Difficulty Levels**: Beginner (A1-A2), Intermediate (B1-B2), Advanced (C1-C2)
+- ✍️ **Custom Topics**: Create stories about any topic you choose
+- 📄 **Adjustable Length**: Control story length (3-20 pages)
 - 👥 **Multi-Character Support**: Randomly generates 1-3 main characters per story
 - 🖼️ **Illustrated Pages**: Modern flat illustration style with character consistency
 - 📱 **Story Cards**: Bilingual (Finnish/English) cards optimized for mobile viewing
@@ -62,11 +64,11 @@ Generate a story directly from the command line:
 # Default (Beginner level)
 python story_generator.py
 
-# Specify difficulty level
-python story_generator.py --level Intermediate
+# Specify difficulty level and topic
+python story_generator.py --level Intermediate --topic "A summer day in Turku"
 
-# Custom output directory
-python story_generator.py --output_dir my_stories --level Advanced
+# Custom output directory and page count
+python story_generator.py --output_dir my_stories --level Advanced --pages 12
 ```
 
 ### Clean Up

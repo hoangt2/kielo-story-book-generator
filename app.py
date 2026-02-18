@@ -3,7 +3,7 @@ import threading
 import os
 import json
 import time
-from story_generator import main as generate_story
+from story_generator import main as generate_story, get_current_theme
 
 app = Flask(__name__)
 
@@ -14,7 +14,7 @@ generation_state = {
     "logs": []
 }
 
-def run_generation(level="Beginner"):
+def run_generation(level="Beginner", theme_category=None, custom_topic=None, page_count=10, custom_setting=None):
     global generation_state
     generation_state["is_generating"] = True
     generation_state["status"] = "Starting..."
@@ -28,7 +28,7 @@ def run_generation(level="Beginner"):
     try:
         # Clean up first? Maybe optional.
         # For now, just run generation
-        success = generate_story(status_callback=status_callback, level=level)
+        success = generate_story(status_callback=status_callback, level=level, theme_category=theme_category, custom_topic=custom_topic, page_count=page_count, custom_setting=custom_setting)
         
         # Check if generation failed
         if not success:
@@ -45,6 +45,12 @@ def run_generation(level="Beginner"):
 def index():
     return render_template('index.html')
 
+@app.route('/api/themes')
+def get_themes():
+    """Returns available theme categories for the UI dropdown."""
+    from prompts import get_theme_categories
+    return jsonify(get_theme_categories())
+
 @app.route('/api/generate', methods=['POST'])
 def start_generation():
     if generation_state["is_generating"]:
@@ -52,8 +58,17 @@ def start_generation():
     
     data = request.get_json() or {}
     level = data.get("level", "Beginner")
+    theme_category = data.get("theme_category", None)
+    custom_topic = data.get("custom_topic", None)
+    page_count = int(data.get("page_count", 10))
     
-    thread = threading.Thread(target=run_generation, args=(level,))
+    custom_setting = data.get("custom_setting", None)
+    
+    # Normalize theme_category (empty string or "random" = None)
+    if theme_category in [None, "", "random"]:
+        theme_category = None
+    
+    thread = threading.Thread(target=run_generation, args=(level, theme_category, custom_topic, page_count, custom_setting))
     thread.start()
     return jsonify({"message": "Generation started"})
 
@@ -112,13 +127,37 @@ def archive_story():
         if os.path.exists("output/story.pdf"):
             shutil.copy2("output/story.pdf", os.path.join(archive_path, "story.pdf"))
         
-        # Save to history only when user explicitly archives
+        # Save to history with theme info
         from history_manager import save_to_history
-        save_to_history(data)
+        current_theme = get_current_theme()
+        save_to_history(data, theme=current_theme)
         
         return jsonify({"message": "Story archived successfully", "path": archive_path})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/regenerate_image', methods=['POST'])
+def regenerate_image():
+    if generation_state["is_generating"]:
+        return jsonify({"error": "Cannot regenerate while story is generating"}), 400
+        
+    data = request.get_json() or {}
+    page_number = data.get("page_number")
+    
+    if not page_number:
+        return jsonify({"error": "Page number is required"}), 400
+        
+    try:
+        from story_generator import regenerate_page_image
+        success, message = regenerate_page_image(int(page_number))
+        
+        if success:
+            return jsonify({"message": "Image regenerated successfully", "path": message})
+        else:
+            return jsonify({"error": message}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
+

@@ -9,7 +9,13 @@ function startGeneration() {
     const storyContainer = document.getElementById('storyContainer');
     const downloadSection = document.getElementById('downloadSection');
     const levelSelect = document.getElementById('levelSelect');
+    const themeSelect = document.getElementById('themeSelect');
     const selectedLevel = levelSelect.value;
+    const selectedTheme = themeSelect.value;
+
+    const customTopic = document.getElementById('customTopic').value;
+    const customSetting = document.getElementById('customSetting').value;
+    const pageCount = document.getElementById('pageCount').value;
 
     btn.disabled = true;
     isGenerating = true;
@@ -22,7 +28,13 @@ function startGeneration() {
     fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ level: selectedLevel })
+        body: JSON.stringify({
+            level: selectedLevel,
+            theme_category: selectedTheme,
+            custom_topic: customTopic,
+            page_count: pageCount,
+            custom_setting: customSetting
+        })
     })
         .then(response => response.json())
         .then(data => {
@@ -92,10 +104,57 @@ function loadStory() {
                         <p class="fi-text">${page.text_fi}</p>
                         <p class="en-text">${page.text_en}</p>
                     </div>
+                    <button class="regenerate-btn" onclick="regenerateImage(${page.page_number}, this)" title="Regenerate Illustration">🔄</button>
                 `;
                 container.appendChild(card);
             });
         });
+}
+
+function regenerateImage(pageNumber, btnElement) {
+    if (confirm("Are you sure you want to regenerate this image? It will replace the current one.")) {
+        const originalText = btnElement.innerText;
+        btnElement.innerText = "Regenerating...";
+        btnElement.disabled = true;
+
+        // Find the image element for this page
+        const card = btnElement.closest('.story-card');
+        const img = card.querySelector('img');
+
+        fetch('/api/regenerate_image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ page_number: pageNumber })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    btnElement.innerText = originalText;
+                    btnElement.disabled = false;
+                } else {
+                    // Success! Force reload image with timestamp
+                    const timestamp = new Date().getTime();
+                    // We need to reload the image source. 
+                    // The filename is likely the same, so cache busting is needed.
+                    // Construct path safely
+                    const currentSrc = img.src.split('?')[0];
+                    img.src = `${currentSrc}?t=${timestamp}`;
+
+                    btnElement.innerText = "✨ Regenerated!";
+                    setTimeout(() => {
+                        btnElement.innerText = originalText;
+                        btnElement.disabled = false;
+                    }, 2000);
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Failed to connect to server.');
+                btnElement.innerText = originalText;
+                btnElement.disabled = false;
+            });
+    }
 }
 
 function archiveStory() {

@@ -20,21 +20,53 @@ if not GOOGLE_API_KEY:
 genai.configure(api_key=GOOGLE_API_KEY)
 
 from grammar_checker import check_grammar
-from history_manager import load_history, save_to_history
+from history_manager import load_history, save_to_history, get_used_themes
 from cleanup import cleanup
 
-def generate_story_concept(level="Beginner"):
+def generate_story_concept(level="Beginner", theme_category=None, custom_topic=None, page_count=10, custom_setting=None):
     """Generates the story structure using Gemini Pro."""
-    print(f"Generating story concept for {level} level...")
+    global _current_theme
     
-    # Load history
+    theme_msg = theme_category or 'random'
+    if custom_topic:
+        theme_msg = f"Custom: {custom_topic}"
+        
+    print(f"Generating story concept for {level} level (theme: {theme_msg}, pages: {page_count}, setting: {custom_setting})...")
+    
+    # Load history and used themes
     history = load_history()
+    used_themes = get_used_themes()
     
     model = genai.GenerativeModel('gemini-2.0-flash')
-    from prompts import get_story_prompt
+    from prompts import get_story_prompt, select_theme
     
-    # Pass history to prompt
-    prompt = get_story_prompt(level, previous_stories=history)
+    # Select theme first so we can store it (even if we override it with custom topic)
+    # If custom topic is present, we might still want a base theme for seasoning/setting if the user didn't specify?
+    # Or we construct a "custom" theme object.
+    
+    if custom_topic or custom_setting:
+        _current_theme = {
+            "category": "custom",
+            "season": "Any",
+            "setting": custom_setting or "User defined",
+            "activity": custom_topic or "User defined",
+            "mood": "engaging"
+        }
+    else:
+        _current_theme = select_theme(category=theme_category, used_themes=used_themes)
+        
+    print(f"Selected theme: {_current_theme.get('setting', 'Custom')} - {_current_theme.get('activity', custom_topic)}")
+    
+    # Pass history and theme info to prompt
+    prompt = get_story_prompt(
+        level, 
+        previous_stories=history, 
+        theme_category=theme_category, 
+        used_themes=used_themes,
+        custom_topic=custom_topic,
+        page_count=page_count,
+        custom_setting=custom_setting
+    )
     
     response = model.generate_content(prompt)
     
@@ -48,7 +80,11 @@ def generate_story_concept(level="Beginner"):
         print("Raw response:", response.text)
         return None
 
-def main(status_callback=None, level="Beginner", max_retries=3):
+def get_current_theme():
+    """Returns the theme used for the current generation session."""
+    return _current_theme
+
+def main(status_callback=None, level="Beginner", max_retries=3, theme_category=None, custom_topic=None, page_count=10, custom_setting=None):
     def log(message):
         print(message)
         if status_callback:
@@ -58,13 +94,25 @@ def main(status_callback=None, level="Beginner", max_retries=3):
     parser.add_argument("--output_dir", default="output", help="Directory to save results")
     parser.add_argument("--level", default=level, choices=["Beginner", "Intermediate", "Advanced"], help="Language difficulty level")
     parser.add_argument("--max_retries", type=int, default=max_retries, help="Maximum number of retries for grammar check")
+    parser.add_argument("--theme", default=theme_category, help="Theme category (winter, spring, summer, autumn, everyday, special)")
+    parser.add_argument("--topic", default=custom_topic, help="Custom topic for the story")
+    parser.add_argument("--pages", type=int, default=page_count, help="Number of pages for the story")
+    parser.add_argument("--setting", default=custom_setting, help="Custom setting for the story")
     
     # Check if running from script or module
     try:
         args = parser.parse_args()
     except:
         # Create a dummy namespace if parsing fails (e.g. when called from app.py)
-        args = argparse.Namespace(output_dir="output", level=level, max_retries=max_retries)
+        args = argparse.Namespace(
+            output_dir="output", 
+            level=level, 
+            max_retries=max_retries, 
+            theme=theme_category,
+            topic=custom_topic,
+            pages=page_count,
+            setting=custom_setting
+        )
 
     # Clean up old output before starting
     log("Cleaning up previous output...")
@@ -72,9 +120,13 @@ def main(status_callback=None, level="Beginner", max_retries=3):
 
     # 1. Generate Story with Retry Loop
     for attempt in range(1, args.max_retries + 1):
-        log(f"Generating story concept for {args.level} level (Attempt {attempt}/{args.max_retries})...")
+        theme_label = args.theme or "random"
+        if args.topic:
+            theme_label = f"Custom: {args.topic}"
+            
+        log(f"Generating story concept for {args.level} level, theme: {theme_label}, pages: {args.pages}, setting: {args.setting} (Attempt {attempt}/{args.max_retries})...")
         
-        story = generate_story_concept(level=args.level)
+        story = generate_story_concept(level=args.level, theme_category=args.theme, custom_topic=args.topic, page_count=args.pages, custom_setting=args.setting)
         if not story:
             log("Failed to generate story concept. Retrying...")
             continue
@@ -264,6 +316,77 @@ def process_story(story, output_dir="output", status_callback=None):
     compile_to_pdf(dirs["cards"], pdf_path)
     log("All done! PDF created.")
 
+
+
+def regenerate_page_image(page_number, output_dir="output"):
+    """
+    Regenerates the image for a specific page using the saved story data.
+    """
+    try:
+        data_path = os.path.join(output_dir, "data", "story.json")
+        if not os.path.exists(data_path):
+            print(f"Error: Story data not found at {data_path}")
+            return False, "Story data not found"
+            
+        with open(data_path, "r", encoding="utf-8") as f:
+            story = json.load(f)
+            
+        # Find the page
+        page = next((p for p in story.get("pages", []) if p.get("page_number") == page_number), None)
+        if not page:
+            print(f"Error: Page {page_number} not found in story data")
+            return False, f"Page {page_number} not found"
+            
+        print(f"Regenerating image for page {page_number}...")
+        
+        # Paths
+        images_dir = os.path.join(output_dir, "images")
+        cards_dir = os.path.join(output_dir, "cards")
+        
+        image_filename = f"page_{page_number}.png"
+        image_path = os.path.join(images_dir, image_filename)
+        final_filename = f"story_card_{page_number}.png"
+        final_path = os.path.join(cards_dir, final_filename)
+        
+        # Get character context
+        characters = story.get("characters", [])
+        main_char_desc = characters[0].get("description", "") if characters else ""
+        
+        # Try to find existing character model
+        # We need to guess the filename or re-scan, but for now let's assume one exists if we can find it
+        # Or just pass None as model path if we don't track it easily. 
+        # Actually checking for any character model file matching the first character is a good best-effort.
+        main_model_path = None
+        if characters:
+             name = characters[0].get("name", "Unknown")
+             safe_name = "".join(x for x in name if x.isalnum())
+             possible_path = os.path.join(images_dir, f"character_model_{safe_name}.png")
+             if os.path.exists(possible_path):
+                 main_model_path = possible_path
+        
+        # Generate Image
+        full_prompt = f"{page.get('image_description')}"
+        success = generate_image(full_prompt, image_path, main_char_desc, main_model_path)
+        
+        if success:
+            # Composite
+            create_story_card(
+                image_path, 
+                page.get("text_fi"), 
+                page.get("text_en"), 
+                final_path
+            )
+            # Re-compile PDF (optional but good to keep in sync)
+            # from pdf_generator import compile_to_pdf
+            # compile_to_pdf(cards_dir, os.path.join(output_dir, "story.pdf"))
+            
+            return True, final_path
+        else:
+            return False, "Failed to generate image"
+            
+    except Exception as e:
+        print(f"Error regenerating image: {e}")
+        return False, str(e)
 
 
 if __name__ == "__main__":

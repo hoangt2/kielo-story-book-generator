@@ -30,5 +30,142 @@
       "Aino",
       "Topi"
     ]
+  },
+  {
+    "title_fi": "Koiran kanssa Oulussa",
+    "title_en": "With a Dog in Oulu",
+    "characters": [
+      "Ilari",
+      "Musti"
+    ]
+  },
+  {
+    "title_fi": "Koiran kanssa Oulussa",
+    "title_en": "With a Dog in Oulu",
+    "characters": [
+      "Ilari",
+      "Musti"
+    ]
+  },
+  {
+    "title_fi": "Vieras Linnanmäellä",
+    "title_en": "A Stranger at Linnanmäki",
+    "characters": [
+      "Onni",
+      "Maija",
+      "Kenji"
+    ]
+  },
+  {
+    "title_fi": "Jouluostoksilla Senaatintorilla",
+    "title_en": "Christmas Shopping at Senate Square",
+    "characters": [
+      "Liisa",
+      "Javier"
+    ],
+    "theme": {
+      "setting": "a cozy library during a snowstorm",
+      "activity": "reading books and drinking tea",
+      "season": "Winter",
+      "category": "winter"
+    }
+  },
+  {
+    "title_fi": "Itsenäisyyspäivä Espoossa",
+    "title_en": "Independence Day in Espoo",
+    "characters": [
+      "Elias",
+      "Aisha"
+    ],
+    "theme": {
+      "setting": "a cozy cabin (mökki) by a frozen lake",
+      "activity": "ice fishing and making hot cocoa",
+      "season": "Winter",
+      "category": "winter"
+    }
+  },
+  {
+    "title_fi": "Revontulet Rovaniemellä",
+    "title_en": "Northern Lights in Rovaniemi",
+    "characters": [
+      "Aino",
+      "Björn"
+    ],
+    "theme": {
+      "setting": "a ski resort in Lapland",
+      "activity": "learning to ski or snowboard",
+      "season": "Winter",
+      "category": "winter"
+    }
+  },
+  {
+    "title_fi": "Aurinkoinen Päivä Kauppatorilla",
+    "title_en": "A Sunny Day at the Market Square",
+    "characters": [
+      "Leevi",
+      "Sofia"
+    ],
+    "theme": {
+      "setting": "User defined",
+      "activity": "two friends greeting and ask about each other life on a sunny winter day in Helsinki",
+      "season": "Any",
+      "category": "custom"
+    }
+  },
+  {
+    "title_fi": "Ystävät Oodissa",
+    "title_en": "Friends at Oodi",
+    "characters": [
+      "Kaisa",
+      "Markus"
+    ],
+    "theme": {
+      "setting": "Oodi library",
+      "activity": "two friends greeting and ask about each other life",
+      "season": "Any",
+      "category": "custom"
+    }
+  },
+  {
+    "title_fi": "Ystäviä Oodissa: Syksyinen Jälleennäkeminen",
+    "title_en": "Friends at Oodi: An Autumn Reunion",
+    "characters": [
+      "Eeva",
+      "Leo"
+    ],
+    "theme": {
+      "setting": "Oodi library",
+      "activity": "two friends greeting and ask about each other life",
+      "season": "Any",
+      "category": "custom"
+    }
+  },
+  {
+    "title_fi": "Talvinen Yllätys Espoossa",
+    "title_en": "A Winter Surprise in Espoo",
+    "characters": [
+      "Onni",
+      "Sari"
+    ],
+    "theme": {
+      "setting": "outdoor, sunny winter day in Espoo",
+      "activity": "two friends greeting and ask about each other life",
+      "season": "Any",
+      "category": "custom"
+    }
+  },
+  {
+    "title_fi": "Jäällä Espoossa",
+    "title_en": "On the Ice in Espoo",
+    "characters": [
+      "Ilari",
+      "Sofia"
+    ],
+    "theme": {
+      "setting": "sea coastline in South of Espoo on a sunny winter day",
+      "activity": "2 friends were walking on frozen sea and see each other so they greet and ask about each other life",
+      "season": "Any",
+      "category": "custom"
+    }
   }
 ]
