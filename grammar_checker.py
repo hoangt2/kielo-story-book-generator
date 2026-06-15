@@ -53,7 +53,7 @@ def check_grammar(story_data):
     """
     
     try:
-        model = genai.GenerativeModel('gemini-2.0-flash')
+        model = genai.GenerativeModel('gemini-3.5-flash')
         response = model.generate_content(prompt)
         
         text = response.text.replace("```json", "").replace("```", "").strip()

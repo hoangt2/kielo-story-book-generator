@@ -167,5 +167,64 @@
       "season": "Any",
       "category": "custom"
     }
+  },
+  {
+    "title_fi": "Pääsiäinen Porvoossa",
+    "title_en": "Easter in Porvoo",
+    "characters": [
+      "Aino",
+      "Rasmus"
+    ],
+    "theme": {
+      "setting": "User defined",
+      "activity": "Easter Holiday",
+      "season": "Any",
+      "category": "custom"
+    }
+  },
+  {
+    "title_fi": "Jäätelökesä Tampereella",
+    "title_en": "Ice Cream Summer in Tampere",
+    "characters": [
+      "Yuki",
+      "Matias",
+      "Pulla"
+    ],
+    "theme": {
+      "setting": "User defined",
+      "activity": "Jäätelökesä (Ice Cream Summer)",
+      "season": "Any",
+      "category": "custom"
+    }
+  },
+  {
+    "title_fi": "Jäätelöä satamassa",
+    "title_en": "Ice Cream at the Harbor",
+    "characters": [
+      "Oliver",
+      "Minna",
+      "Pörrö"
+    ],
+    "theme": {
+      "setting": "User defined",
+      "activity": "Jäätelökesä (Ice Cream Summer)",
+      "season": "Any",
+      "category": "custom"
+    }
+  },
+  {
+    "title_fi": "Jäätelöä satamassa",
+    "title_en": "Ice Cream at the Harbor",
+    "characters": [
+      "Oliver",
+      "Minna",
+      "Pörrö"
+    ],
+    "theme": {
+      "setting": "User defined",
+      "activity": "Jäätelökesä (Ice Cream Summer)",
+      "season": "Any",
+      "category": "custom"
+    }
   }
 ]

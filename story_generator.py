@@ -37,7 +37,7 @@ def generate_story_concept(level="Beginner", theme_category=None, custom_topic=N
     history = load_history()
     used_themes = get_used_themes()
     
-    model = genai.GenerativeModel('gemini-2.0-flash')
+    model = genai.GenerativeModel('gemini-3.5-flash')
     from prompts import get_story_prompt, select_theme
     
     # Select theme first so we can store it (even if we override it with custom topic)

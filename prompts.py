@@ -236,10 +236,17 @@ You are a Finnish language learning content creator. Your goal is to generate an
     - BAD: "Sofia is smiling."
     - GOOD: "Sofia, a young girl with curly blonde hair wearing a blue dress, is smiling."
 
+**TITLE GUIDELINES:**
+- Do NOT use "[Activity] in [Place]" format (e.g., avoid "Ice Cream Summer in Tampere", "Swimming in Helsinki").
+- Do NOT use overly dramatic or mysterious titles (e.g., avoid "The Sweet Mystery", "The Secret Recipe", "The Hidden Truth").
+- Instead, use NATURAL, straightforward titles that describe what the story is about.
+- Good examples: "Oliverin jäätelökioski" / "Oliver's Ice Cream Kiosk", "Uusi naapuri" / "The New Neighbor", "Pikon ensimmäinen talvi" / "Piko's First Winter", "Saunapäivä" / "Sauna Day".
+- The title should feel natural and fitting — like the name of a short story, not a thriller or a fairy tale.
+
 **JSON Structure:**
 {{
-  "title_fi": "Finnish Title",
-  "title_en": "English Title",
+  "title_fi": "Natural Finnish Title",
+  "title_en": "Natural English Title",
   "characters": [
     {{
       "name": "Name",
