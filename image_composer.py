@@ -2,229 +2,322 @@ from PIL import Image, ImageDraw, ImageFont
 import textwrap
 import os
 
-def create_story_card(image_path, finnish_text, english_text, output_path):
+# Aspect ratio canvas configurations (shared with story_generator.py)
+ASPECT_RATIO_CONFIGS = {
+    "9:16": {"width": 1080, "height": 1920},
+    "1:1":  {"width": 1080, "height": 1080},
+    "4:3":  {"width": 1440, "height": 1080},
+    "3:4":  {"width": 1080, "height": 1440},
+    "16:9": {"width": 1920, "height": 1080},
+}
+DEFAULT_ASPECT_RATIO = "9:16"
+
+# Font candidates
+FONT_CANDIDATES_BOLD = [
+    "arialbd.ttf", 
+    "Arial Bold", 
+    "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+    "/Library/Fonts/Arial Bold.ttf"
+]
+FONT_CANDIDATES_REG = [
+    "arial.ttf", 
+    "Arial", 
+    "/System/Library/Fonts/Supplemental/Arial.ttf",
+    "/Library/Fonts/Arial.ttf"
+]
+
+def _load_font(candidates, size):
+    """Try to load a font from the candidate list, fall back to default."""
+    for font_name in candidates:
+        try:
+            return ImageFont.truetype(font_name, size)
+        except IOError:
+            continue
+    # Fallback
+    try:
+        return ImageFont.load_default(size=size)
+    except TypeError:
+        return ImageFont.load_default()
+
+def _wrap_text_to_width(draw, text, font, max_width):
+    """Wrap text to fit within max_width pixels."""
+    words = text.split()
+    lines = []
+    current_line = []
+    
+    for word in words:
+        test_line = ' '.join(current_line + [word])
+        bbox = draw.textbbox((0, 0), test_line, font=font)
+        line_width = bbox[2] - bbox[0]
+        
+        if line_width <= max_width:
+            current_line.append(word)
+        else:
+            if current_line:
+                lines.append(' '.join(current_line))
+            current_line = [word]
+    
+    if current_line:
+        lines.append(' '.join(current_line))
+    
+    return lines
+
+def _calculate_text_height(draw, text, font, max_width, line_spacing=15):
+    """Calculate total height needed for wrapped text."""
+    lines = _wrap_text_to_width(draw, text, font, max_width)
+    if not lines:
+        return 0
+    
+    bbox = draw.textbbox((0, 0), lines[0], font=font)
+    line_height = bbox[3] - bbox[1]
+    total_height = len(lines) * line_height + (len(lines) - 1) * line_spacing
+    return total_height
+
+def _find_optimal_font_size(draw, text, initial_size, max_width, max_height, font_candidates, min_size=20):
+    """Find the largest font size that fits the text within constraints."""
+    current_size = initial_size
+    
+    while current_size >= min_size:
+        font = _load_font(font_candidates, current_size)
+        height = _calculate_text_height(draw, text, font, max_width)
+        if height <= max_height:
+            return font, current_size
+        current_size -= 2
+    
+    return _load_font(font_candidates, min_size), min_size
+
+def _draw_text_block(draw, text, font, start_y, color, canvas_width, max_width, line_spacing=15):
+    """Draw a centered text block and return the final y position."""
+    lines = _wrap_text_to_width(draw, text, font, max_width)
+    current_y = start_y
+    
+    if lines:
+        bbox = draw.textbbox((0, 0), lines[0], font=font)
+        line_height = bbox[3] - bbox[1]
+    else:
+        line_height = 0
+    
+    for line in lines:
+        bbox = draw.textbbox((0, 0), line, font=font)
+        text_width = bbox[2] - bbox[0]
+        x = (canvas_width - text_width) / 2
+        draw.text((x, current_y), line, font=font, fill=color)
+        current_y += line_height + line_spacing
+    
+    return current_y
+
+def _draw_text_block_with_shadow(draw, text, font, start_y, color, canvas_width, max_width, line_spacing=15, shadow_color="#00000080", shadow_offset=2):
+    """Draw a centered text block with drop shadow for readability on images."""
+    lines = _wrap_text_to_width(draw, text, font, max_width)
+    current_y = start_y
+    
+    if lines:
+        bbox = draw.textbbox((0, 0), lines[0], font=font)
+        line_height = bbox[3] - bbox[1]
+    else:
+        line_height = 0
+    
+    for line in lines:
+        bbox = draw.textbbox((0, 0), line, font=font)
+        text_width = bbox[2] - bbox[0]
+        x = (canvas_width - text_width) / 2
+        # Draw shadow
+        draw.text((x + shadow_offset, current_y + shadow_offset), line, font=font, fill=shadow_color)
+        # Draw text
+        draw.text((x, current_y), line, font=font, fill=color)
+        current_y += line_height + line_spacing
+    
+    return current_y
+
+
+def create_story_card(image_path, finnish_text, english_text, output_path, aspect_ratio=None):
     """
-    Composites a square image and bilingual text into a 9:16 vertical card.
+    Composites an image and bilingual text into a story card.
+    
+    For 9:16 (default): Full-bleed image with text overlaid on a gradient at the bottom.
+    For other ratios: Image at top with text area below.
     """
-    # Constants
-    CANVAS_WIDTH = 1080
-    CANVAS_HEIGHT = 1920
-    MARGIN = 100  # Margin on all 4 sides for TikTok safe area
-    CONTENT_WIDTH = CANVAS_WIDTH - (2 * MARGIN)
-    CONTENT_HEIGHT = CANVAS_HEIGHT - (2 * MARGIN)
-    IMAGE_SIZE = CONTENT_WIDTH  # Square image within margins
-    BG_COLOR = "#FFFFFF"
-    TEXT_COLOR = "#000000"
-    PADDING = 60
+    if aspect_ratio is None:
+        aspect_ratio = DEFAULT_ASPECT_RATIO
+    
+    config = ASPECT_RATIO_CONFIGS.get(aspect_ratio, ASPECT_RATIO_CONFIGS[DEFAULT_ASPECT_RATIO])
+    CANVAS_WIDTH = config["width"]
+    CANVAS_HEIGHT = config["height"]
+    
+    if aspect_ratio == "9:16":
+        _create_fullbleed_card(image_path, finnish_text, english_text, output_path, CANVAS_WIDTH, CANVAS_HEIGHT)
+    else:
+        _create_split_card(image_path, finnish_text, english_text, output_path, CANVAS_WIDTH, CANVAS_HEIGHT)
+
+
+def _create_fullbleed_card(image_path, finnish_text, english_text, output_path, canvas_width, canvas_height):
+    """
+    9:16 full-screen vertical card: image fills the entire canvas,
+    text is overlaid on a dark gradient at the bottom.
+    """
+    MARGIN = 60
+    PADDING = 40
+    TEXT_ZONE_HEIGHT = int(canvas_height * 0.35)  # Bottom 35% for text overlay
     
     # Create canvas
-    canvas = Image.new("RGB", (CANVAS_WIDTH, CANVAS_HEIGHT), BG_COLOR)
-    draw = ImageDraw.Draw(canvas)
+    canvas = Image.new("RGB", (canvas_width, canvas_height), "#000000")
     
-    # Load and resize image
+    # Load and resize image to fill canvas (cover mode)
     try:
         img = Image.open(image_path)
-        img = img.resize((IMAGE_SIZE, IMAGE_SIZE), Image.Resampling.LANCZOS)
-        # Paste image with margin offset
-        canvas.paste(img, (MARGIN, MARGIN))
+        # Scale to cover the canvas
+        img_ratio = img.width / img.height
+        canvas_ratio = canvas_width / canvas_height
+        
+        if img_ratio > canvas_ratio:
+            # Image is wider — fit to height, crop sides
+            new_height = canvas_height
+            new_width = int(canvas_height * img_ratio)
+        else:
+            # Image is taller — fit to width, crop top/bottom
+            new_width = canvas_width
+            new_height = int(canvas_width / img_ratio)
+        
+        img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        
+        # Center crop
+        x_offset = (new_width - canvas_width) // 2
+        y_offset = (new_height - canvas_height) // 2
+        img = img.crop((x_offset, y_offset, x_offset + canvas_width, y_offset + canvas_height))
+        
+        canvas.paste(img, (0, 0))
     except Exception as e:
         print(f"Error loading image {image_path}: {e}")
         return
-
-    # Font setup
-    font_size_fi = 70
-    font_size_en = 50
     
-    font_fi = None
-    font_en = None
-
-    # Try to find a nice font
-    font_candidates_bold = [
-        "arialbd.ttf", 
-        "Arial Bold", 
-        "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
-        "/Library/Fonts/Arial Bold.ttf"
-    ]
-    font_candidates_reg = [
-        "arial.ttf", 
-        "Arial", 
-        "/System/Library/Fonts/Supplemental/Arial.ttf",
-        "/Library/Fonts/Arial.ttf"
-    ]
-
-    for font_name in font_candidates_bold:
-        try:
-            font_fi = ImageFont.truetype(font_name, font_size_fi)
-            break
-        except IOError:
-            continue
-            
-    for font_name in font_candidates_reg:
-        try:
-            font_en = ImageFont.truetype(font_name, font_size_en)
-            break
-        except IOError:
-            continue
-            
-    if font_fi is None:
-        print("Custom bold font not found, using default.")
-        try:
-            font_fi = ImageFont.load_default(size=font_size_fi)
-        except TypeError:
-            font_fi = ImageFont.load_default()
-
-    if font_en is None:
-        print("Custom regular font not found, using default.")
-        try:
-            font_en = ImageFont.load_default(size=font_size_en)
-        except TypeError:
-            font_en = ImageFont.load_default()
-
-    # Text positioning (account for margins)
-    text_start_y = MARGIN + IMAGE_SIZE + 60  # Start below image with some spacing
-    text_bottom_limit = CANVAS_HEIGHT - MARGIN - 20  # Leave margin at bottom
-    max_width = CONTENT_WIDTH - (2 * PADDING)
-
-    # Helper to wrap text based on actual pixel width
-    def wrap_text_to_width(text, font, max_width):
-        """Wrap text to fit within max_width pixels"""
-        words = text.split()
-        lines = []
-        current_line = []
-        
-        for word in words:
-            # Try adding word to current line
-            test_line = ' '.join(current_line + [word])
-            bbox = draw.textbbox((0, 0), test_line, font=font)
-            line_width = bbox[2] - bbox[0]
-            
-            if line_width <= max_width:
-                current_line.append(word)
-            else:
-                # Current line is full, start new line
-                if current_line:
-                    lines.append(' '.join(current_line))
-                current_line = [word]
-        
-        # Add remaining words
-        if current_line:
-            lines.append(' '.join(current_line))
-        
-        return lines
-
-    # Helper to calculate text height
-    def calculate_text_height(text, font, max_width):
-        """Calculate total height needed for text"""
-        lines = wrap_text_to_width(text, font, max_width)
-        if not lines:
-            return 0
-        
-        # Get line height from first line
-        bbox = draw.textbbox((0, 0), lines[0], font=font)
-        line_height = bbox[3] - bbox[1]
-        
-        # Total height = (number of lines * line height) + (spacing between lines)
-        total_height = len(lines) * line_height + (len(lines) - 1) * 15
-        return total_height
-
-    # Helper to find optimal font size
-    def find_optimal_font_size(text, initial_size, max_width, max_height, font_candidates, min_size=20):
-        """Find the largest font size that fits the text within constraints"""
-        current_size = initial_size
-        
-        while current_size >= min_size:
-            # Try to load font at current size
-            font = None
-            for font_name in font_candidates:
-                try:
-                    font = ImageFont.truetype(font_name, current_size)
-                    break
-                except IOError:
-                    continue
-            
-            if font is None:
-                try:
-                    font = ImageFont.load_default(size=current_size)
-                except TypeError:
-                    font = ImageFont.load_default()
-            
-            # Check if text fits
-            height = calculate_text_height(text, font, max_width)
-            if height <= max_height:
-                return font, current_size
-            
-            # Reduce size and try again
-            current_size -= 2
-        
-        # If we get here, return the minimum size font
-        font = None
-        for font_name in font_candidates:
-            try:
-                font = ImageFont.truetype(font_name, min_size)
-                break
-            except IOError:
-                continue
-        
-        if font is None:
-            try:
-                font = ImageFont.load_default(size=min_size)
-            except TypeError:
-                font = ImageFont.load_default()
-        
-        return font, min_size
-
-    # Helper to draw text block with wrapping
-    def draw_text_block(text, font, start_y, color):
-        """Draw text block and return final y position"""
-        lines = wrap_text_to_width(text, font, max_width)
-        current_y = start_y
-        
-        # Get line height
-        if lines:
-            bbox = draw.textbbox((0, 0), lines[0], font=font)
-            line_height = bbox[3] - bbox[1]
-        else:
-            line_height = 0
-        
-        for line in lines:
-            # Calculate text width to center it
-            bbox = draw.textbbox((0, 0), line, font=font)
-            text_width = bbox[2] - bbox[0]
-            x = (CANVAS_WIDTH - text_width) / 2
-            draw.text((x, current_y), line, font=font, fill=color)
-            current_y += line_height + 15  # Line spacing
-        
-        return current_y
-
-    # Calculate available space for both text blocks
+    # Draw gradient overlay at bottom for text readability
+    gradient = Image.new("RGBA", (canvas_width, TEXT_ZONE_HEIGHT), (0, 0, 0, 0))
+    gradient_draw = ImageDraw.Draw(gradient)
+    
+    for y in range(TEXT_ZONE_HEIGHT):
+        # Gradient from transparent to semi-opaque black
+        alpha = int(200 * (y / TEXT_ZONE_HEIGHT))
+        gradient_draw.line([(0, y), (canvas_width, y)], fill=(0, 0, 0, alpha))
+    
+    # Paste gradient at the bottom
+    canvas = canvas.convert("RGBA")
+    canvas.paste(gradient, (0, canvas_height - TEXT_ZONE_HEIGHT), gradient)
+    canvas = canvas.convert("RGB")
+    
+    draw = ImageDraw.Draw(canvas)
+    
+    # Text layout within the gradient zone
+    max_text_width = canvas_width - (2 * (MARGIN + PADDING))
+    text_start_y = canvas_height - TEXT_ZONE_HEIGHT + int(TEXT_ZONE_HEIGHT * 0.15)
+    text_bottom_limit = canvas_height - MARGIN
     available_height = text_bottom_limit - text_start_y
     
-    # Allocate space: 60% for Finnish, 40% for English
+    # Font sizing
     finnish_max_height = available_height * 0.6
-    english_max_height = available_height * 0.4
+    english_max_height = available_height * 0.35
     
-    # Find optimal font sizes
-    font_fi, actual_size_fi = find_optimal_font_size(
-        finnish_text, font_size_fi, max_width, finnish_max_height, font_candidates_bold
+    font_fi, actual_size_fi = _find_optimal_font_size(
+        draw, finnish_text, 64, max_text_width, finnish_max_height, FONT_CANDIDATES_BOLD
     )
-    font_en, actual_size_en = find_optimal_font_size(
-        english_text, font_size_en, max_width, english_max_height, font_candidates_reg
+    font_en, actual_size_en = _find_optimal_font_size(
+        draw, english_text, 44, max_text_width, english_max_height, FONT_CANDIDATES_REG
     )
     
-    print(f"Finnish font size: {actual_size_fi}px, English font size: {actual_size_en}px")
+    print(f"Finnish font size: {actual_size_fi}px, English font size: {actual_size_en}px (fullbleed)")
+    
+    # Draw Finnish text (white with shadow)
+    current_y = _draw_text_block_with_shadow(
+        draw, finnish_text, font_fi, text_start_y, "#FFFFFF",
+        canvas_width, max_text_width
+    )
+    
+    current_y += 20
+    
+    # Draw English text (light grey with shadow)
+    _draw_text_block_with_shadow(
+        draw, english_text, font_en, current_y, "#CCCCCC",
+        canvas_width, max_text_width
+    )
+    
+    canvas.save(output_path)
+    print(f"Saved fullbleed story card to {output_path}")
+
+
+def _create_split_card(image_path, finnish_text, english_text, output_path, canvas_width, canvas_height):
+    """
+    Non-fullscreen layout: image at top, text below (used for 1:1, 4:3, 16:9, 3:4).
+    """
+    MARGIN = 60
+    PADDING = 40
+    BG_COLOR = "#FFFFFF"
+    TEXT_COLOR = "#000000"
+    
+    # Image takes up 65% of height, text takes 35%
+    image_area_height = int(canvas_height * 0.65)
+    text_area_height = canvas_height - image_area_height
+    
+    canvas = Image.new("RGB", (canvas_width, canvas_height), BG_COLOR)
+    draw = ImageDraw.Draw(canvas)
+    
+    # Load and resize image to fill image area (cover mode)
+    try:
+        img = Image.open(image_path)
+        img_ratio = img.width / img.height
+        area_ratio = canvas_width / image_area_height
+        
+        if img_ratio > area_ratio:
+            new_height = image_area_height
+            new_width = int(image_area_height * img_ratio)
+        else:
+            new_width = canvas_width
+            new_height = int(canvas_width / img_ratio)
+        
+        img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        
+        x_offset = (new_width - canvas_width) // 2
+        y_offset = (new_height - image_area_height) // 2
+        img = img.crop((x_offset, y_offset, x_offset + canvas_width, y_offset + image_area_height))
+        
+        canvas.paste(img, (0, 0))
+    except Exception as e:
+        print(f"Error loading image {image_path}: {e}")
+        return
+    
+    # Text layout
+    max_text_width = canvas_width - (2 * (MARGIN + PADDING))
+    text_start_y = image_area_height + 30
+    text_bottom_limit = canvas_height - MARGIN
+    available_height = text_bottom_limit - text_start_y
+    
+    finnish_max_height = available_height * 0.6
+    english_max_height = available_height * 0.35
+    
+    font_fi, actual_size_fi = _find_optimal_font_size(
+        draw, finnish_text, 56, max_text_width, finnish_max_height, FONT_CANDIDATES_BOLD
+    )
+    font_en, actual_size_en = _find_optimal_font_size(
+        draw, english_text, 40, max_text_width, english_max_height, FONT_CANDIDATES_REG
+    )
+    
+    print(f"Finnish font size: {actual_size_fi}px, English font size: {actual_size_en}px (split)")
     
     # Draw Finnish text
-    current_y = draw_text_block(finnish_text, font_fi, text_start_y, TEXT_COLOR)
+    current_y = _draw_text_block(
+        draw, finnish_text, font_fi, text_start_y, TEXT_COLOR,
+        canvas_width, max_text_width
+    )
     
-    # Add spacing between languages
-    current_y += 30
+    current_y += 20
     
-    # Draw English text (Grey color for subtitle feel)
-    draw_text_block(english_text, font_en, current_y, "#555555")
-
-    # Save
+    # Draw English text (grey for subtitle feel)
+    _draw_text_block(
+        draw, english_text, font_en, current_y, "#555555",
+        canvas_width, max_text_width
+    )
+    
     canvas.save(output_path)
-    print(f"Saved story card to {output_path}")
+    print(f"Saved split story card to {output_path}")
+
 
 if __name__ == "__main__":
     # Test

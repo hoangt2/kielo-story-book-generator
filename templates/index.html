@@ -21,9 +21,12 @@
                 <div class="level-selector">
                     <label for="levelSelect">Difficulty Level:</label>
                     <select id="levelSelect">
-                        <option value="Beginner">Beginner (A1-A2)</option>
-                        <option value="Intermediate">Intermediate (B1-B2)</option>
-                        <option value="Advanced">Advanced (C1-C2)</option>
+                        <option value="A1" selected>A1 – Breakthrough</option>
+                        <option value="A2">A2 – Elementary</option>
+                        <option value="B1">B1 – Intermediate</option>
+                        <option value="B2">B2 – Upper Intermediate</option>
+                        <option value="C1">C1 – Advanced</option>
+                        <option value="C2">C2 – Mastery</option>
                     </select>
                 </div>
                 <div class="theme-selector">
@@ -50,6 +53,22 @@
                     <label for="pageCount">Number of Pages:</label>
                     <input type="number" id="pageCount" value="10" min="3" max="20" style="width: 60px;">
                 </div>
+                <div class="aspect-ratio-selector">
+                    <label for="aspectRatio">Image Dimensions:</label>
+                    <select id="aspectRatio">
+                        <option value="9:16" selected>📱 Vertical Full Screen (9:16)</option>
+                        <option value="1:1">⬜ Square (1:1)</option>
+                        <option value="3:4">📋 Portrait (3:4)</option>
+                        <option value="4:3">🖼️ Landscape (4:3)</option>
+                        <option value="16:9">🖥️ Widescreen (16:9)</option>
+                    </select>
+                </div>
+                <div class="prompts-only-toggle">
+                    <label for="promptsOnly" class="toggle-label">
+                        <input type="checkbox" id="promptsOnly">
+                        <span>📝 Prompts only (no image generation)</span>
+                    </label>
+                </div>
                 <button id="generateBtn" onclick="startGeneration()">
                     <span class="icon">✨</span> Generate New Story
                 </button>
@@ -68,8 +87,11 @@
             </div>
 
             <div id="downloadSection" class="hidden">
-                <a href="/output/story.pdf" target="_blank" class="download-btn">
+                <a href="/output/story.pdf" target="_blank" class="download-btn" id="pdfDownload">
                     Download PDF Book 📥
+                </a>
+                <a href="/output/image_prompts.txt" target="_blank" class="download-btn prompts-download hidden" id="promptsDownload">
+                    Download Image Prompts 📝
                 </a>
                 <button onclick="archiveStory()" class="secondary-btn">
                     Save to Archive 💾

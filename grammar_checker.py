@@ -69,7 +69,7 @@ def check_grammar(story_data):
 if __name__ == "__main__":
     # Test
     sample_story = {
-        "level": "Beginner",
+        "level": "A1",
         "pages": [
             {"page_number": 1, "text_fi": "Minä olen kissa."}
         ]

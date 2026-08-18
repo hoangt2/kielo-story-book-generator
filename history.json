@@ -226,5 +226,35 @@
       "season": "Any",
       "category": "custom"
     }
+  },
+  {
+    "title_fi": "Kahvia ja lautapelejä",
+    "title_en": "Coffee and Board Games",
+    "characters": [
+      "Elena",
+      "Lauri",
+      "Kaisa"
+    ],
+    "theme": {
+      "setting": "User defined",
+      "activity": "Foreigner meeting new Finnish friends",
+      "season": "Any",
+      "category": "custom"
+    }
+  },
+  {
+    "title_fi": "Uudet ystävät puistossa",
+    "title_en": "New Friends in the Park",
+    "characters": [
+      "Sam",
+      "Kaisa",
+      "Ville"
+    ],
+    "theme": {
+      "setting": "User defined",
+      "activity": "A foreigner meeting new friends on a Finnish summer day",
+      "season": "Any",
+      "category": "custom"
+    }
   }
 ]

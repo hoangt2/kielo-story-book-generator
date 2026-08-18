@@ -116,49 +116,83 @@ def select_theme(category=None, used_themes=None):
     return random.choice(available_themes)
 
 
-def get_story_prompt(level="Beginner", previous_stories=None, theme_category=None, used_themes=None, custom_topic=None, page_count=10, custom_setting=None):
+def get_story_prompt(level="A1", previous_stories=None, theme_category=None, used_themes=None, custom_topic=None, page_count=10, custom_setting=None, grammar_feedback=None):
     """
     Generate a story prompt based on the difficulty level, history, and theme.
     
     Args:
-        level: "Beginner", "Intermediate", or "Advanced"
+        level: "A1", "A2", "B1", "B2", "C1", or "C2"
         previous_stories: List of dicts containing info about past stories.
         theme_category: Optional category to constrain theme selection
         used_themes: List of recently used themes to avoid
+        grammar_feedback: Feedback from a previous failed grammar check to avoid the same mistakes
     """
 
     
     level_constraints = {
-        "Beginner": """
+        "A1": """
 **Constraints:**
-1.  **Level:** Beginner (A1-A2).
-2.  **Sentence Structure:** Simple Subject-Verb-Object (SVO). Avoid complex inversions.
+1.  **Level:** A1 (Breakthrough).
+2.  **Sentence Structure:** Very simple Subject-Verb or Subject-Verb-Object only. One clause per sentence.
+3.  **Verb Forms:** Present tense only (minä olen, hän menee). Only 1st and 3rd person singular.
+4.  **Cases:** Nominative and basic Partitive only. No complex case endings.
+5.  **Vocabulary:** Most basic everyday words only (max 200-300 most common Finnish words). Greetings, numbers, colors, family, food.
+6.  **Sentence Length:** 3-6 words per sentence maximum.
+7.  **Grammar:** No negation chains. Simple "ei" negation only. No possessive suffixes.
+""",
+        "A2": """
+**Constraints:**
+1.  **Level:** A2 (Elementary).
+2.  **Sentence Structure:** Simple Subject-Verb-Object (SVO). Avoid complex inversions. Occasional "ja" (and) conjunctions.
 3.  **Verb Forms:** Present (minä asun) and simple past (hän käveli). Minimize perfect tenses/passive.
 4.  **Cases:** Nominative, Partitive, Illative, Inessive. Avoid complex cases.
-5.  **Vocabulary:** Common, everyday words (max 500 most common Finnish words).
+5.  **Vocabulary:** Common, everyday words (max 500 most common Finnish words). Daily routines, shopping, weather.
 6.  **Sentence Length:** 5-10 words per sentence maximum.
+7.  **Grammar:** Simple negation. Basic postpositions. No complex verb chains.
 """,
-        "Intermediate": """
+        "B1": """
 **Constraints:**
-1.  **Level:** Intermediate (B1-B2).
-2.  **Sentence Structure:** Mix of simple and compound sentences. Some subordinate clauses allowed.
-3.  **Verb Forms:** Present, past, perfect tenses. Conditional mood (conditional). Some passive voice.
-4.  **Cases:** All basic cases including Elative, Adessive, Ablative, Allative. Introduce Essive.
-5.  **Vocabulary:** Broader vocabulary including abstract concepts and less common words.
-6.  **Sentence Length:** 8-15 words per sentence.
+1.  **Level:** B1 (Intermediate).
+2.  **Sentence Structure:** Mix of simple and compound sentences. Basic subordinate clauses with "koska" (because), "kun" (when).
+3.  **Verb Forms:** Present, past, and perfect tenses. Introduce conditional mood (haluaisin). Some passive voice.
+4.  **Cases:** All basic cases including Elative, Adessive, Ablative, Allative. Introduce Essive occasionally.
+5.  **Vocabulary:** Broader vocabulary including common abstract concepts. Opinions, emotions, plans.
+6.  **Sentence Length:** 8-12 words per sentence.
+7.  **Grammar:** Comparative adjectives. Basic relative clauses. Simple infinitive constructions.
 """,
-        "Advanced": """
+        "B2": """
 **Constraints:**
-1.  **Level:** Advanced (C1-C2).
-2.  **Sentence Structure:** Complex sentences with multiple clauses, inversions, and varied structures.
-3.  **Verb Forms:** All tenses and moods including potential, imperative. Passive voice frequently.
-4.  **Cases:** All 15 cases used naturally, including rare ones (Comitative, Instructive).
-5.  **Vocabulary:** Rich, nuanced vocabulary. Idioms, colloquialisms, and literary expressions.
-6.  **Sentence Length:** 10-20 words per sentence. Varied for rhythm.
+1.  **Level:** B2 (Upper Intermediate).
+2.  **Sentence Structure:** Compound and complex sentences. Multiple subordinate clauses. Relative clauses with "joka".
+3.  **Verb Forms:** All common tenses and moods. Conditional and passive used naturally. Perfect and pluperfect tenses.
+4.  **Cases:** All common cases used naturally including Essive and Translative.
+5.  **Vocabulary:** Rich vocabulary including abstract concepts, less common words, and some idiomatic expressions.
+6.  **Sentence Length:** 10-15 words per sentence.
+7.  **Grammar:** Participial constructions. Complex verb chains. Possessive suffixes.
+""",
+        "C1": """
+**Constraints:**
+1.  **Level:** C1 (Advanced).
+2.  **Sentence Structure:** Complex sentences with multiple clauses, inversions, and varied structures. Natural Finnish word order.
+3.  **Verb Forms:** All tenses and moods including potential mood. Passive voice used frequently and naturally.
+4.  **Cases:** All 15 cases used naturally, including Comitative and Instructive where appropriate.
+5.  **Vocabulary:** Rich, nuanced vocabulary. Some idioms, colloquialisms, and varied register.
+6.  **Sentence Length:** 10-18 words per sentence. Varied for rhythm.
+7.  **Grammar:** Agent participles. Temporal constructions. Nuanced modal expressions.
+""",
+        "C2": """
+**Constraints:**
+1.  **Level:** C2 (Mastery).
+2.  **Sentence Structure:** Fully natural Finnish prose. Complex nested clauses, literary devices, and stylistic variation.
+3.  **Verb Forms:** All tenses, moods, and voices used masterfully. Archaic or literary forms where stylistically appropriate.
+4.  **Cases:** All 15 cases deployed with native-like precision and frequency.
+5.  **Vocabulary:** Extensive vocabulary including literary expressions, proverbs, wordplay, and register-appropriate language.
+6.  **Sentence Length:** 12-25 words per sentence. Varied and rhythmic.
+7.  **Grammar:** Full command of Finnish grammar. Rare constructions, emphasis particles, and discourse markers used naturally.
 """
     }
     
-    constraints = level_constraints.get(level, level_constraints["Beginner"])
+    constraints = level_constraints.get(level, level_constraints["A1"])
     
     # Build history context
     history_context = ""
@@ -228,6 +262,16 @@ You are a Finnish language learning content creator. Your goal is to generate an
 {setting_instruction}
 8.  **Length:** EXACTLY {page_count} pages (plus cover).
 9.  **Format:** Return ONLY a valid JSON object.
+{f'''
+**⚠️ CRITICAL: PREVIOUS GRAMMAR ERRORS — DO NOT REPEAT THESE MISTAKES:**
+A previous version of this story was rejected for the following grammar issues. You MUST avoid these exact errors in your new version:
+{grammar_feedback}
+
+Pay extra attention to:
+- Correct Finnish case usage (partitive, accusative, etc.)
+- Natural Finnish word order and phrasing (avoid direct translations from English)
+- Proper Finnish name constructions (e.g., use "Anni-tyttö" not "tyttö Anni")
+''' if grammar_feedback else ''}
 
 **CRITICAL INSTRUCTION: VISUAL CONSISTENCY**
 - **Randomly decide** to have 1, 2, or 3 main characters for the story.
@@ -308,7 +352,10 @@ You are a Finnish language learning content creator. Your goal is to generate an
 """
 
 IMAGE_STYLE_GUIDE = """
-Illustration style: Modern flat illustration with clean lines and a soft, muted color palette. The characters have a friendly, approachable appearance with rounded features and simple, expressive faces. Details are minimal but effective, focusing on essential elements like clothing textures, subtle shadows for depth, and distinct objects. The overall aesthetic is warm, inviting, and slightly whimsical, reminiscent of casual lifestyle or explainer video graphics. The style avoids harsh outlines or heavy shading, opting for a light and airy feel.
+Illustration style: A playful, modern minimalist doodle-style 2D illustration. 
+The illustration must feature bold, thick, uniform black outlines with flat, naturalistic colors.
+Do not use gradients, 3D rendering, or complex shading. Characters should have friendly, exaggerated proportions with simple, clean features. 
+High quality vector-art style.
 
 IMPORTANT: Do NOT include any text, words, letters, or numbers in the image. The image should be purely visual.
 """

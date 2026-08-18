@@ -1,4 +1,6 @@
 let isGenerating = false;
+let currentAspectRatio = '9:16';
+let currentPromptsOnly = false;
 
 function startGeneration() {
     if (isGenerating) return;
@@ -16,6 +18,10 @@ function startGeneration() {
     const customTopic = document.getElementById('customTopic').value;
     const customSetting = document.getElementById('customSetting').value;
     const pageCount = document.getElementById('pageCount').value;
+    const aspectRatio = document.getElementById('aspectRatio').value;
+    const promptsOnly = document.getElementById('promptsOnly').checked;
+    currentAspectRatio = aspectRatio;
+    currentPromptsOnly = promptsOnly;
 
     btn.disabled = true;
     isGenerating = true;
@@ -33,7 +39,9 @@ function startGeneration() {
             theme_category: selectedTheme,
             custom_topic: customTopic,
             page_count: pageCount,
-            custom_setting: customSetting
+            custom_setting: customSetting,
+            aspect_ratio: aspectRatio,
+            prompts_only: promptsOnly
         })
     })
         .then(response => response.json())
@@ -71,12 +79,16 @@ function pollStatus() {
                 }
                 progressFill.style.width = percent + '%';
 
-                if (data.status === "Complete" || data.status.startsWith("Error")) {
+                if (data.status === "Complete" || data.status.startsWith("Error") || data.status.includes("Prompts export complete")) {
                     clearInterval(interval);
                     isGenerating = false;
                     document.getElementById('generateBtn').disabled = false;
-                    if (data.status === "Complete") {
-                        loadStory();
+                    if (data.status === "Complete" || data.status.includes("Prompts export complete")) {
+                        if (currentPromptsOnly) {
+                            loadPromptsOnlyView();
+                        } else {
+                            loadStory();
+                        }
                     }
                 }
             });
@@ -89,7 +101,11 @@ function loadStory() {
         .then(story => {
             const container = document.getElementById('storyContainer');
             container.classList.remove('hidden');
-            document.getElementById('downloadSection').classList.remove('hidden');
+            
+            const downloadSection = document.getElementById('downloadSection');
+            downloadSection.classList.remove('hidden');
+            document.getElementById('pdfDownload').classList.remove('hidden');
+            document.getElementById('promptsDownload').classList.add('hidden');
 
             story.pages.forEach(page => {
                 const card = document.createElement('div');
@@ -124,7 +140,7 @@ function regenerateImage(pageNumber, btnElement) {
         fetch('/api/regenerate_image', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ page_number: pageNumber })
+            body: JSON.stringify({ page_number: pageNumber, aspect_ratio: currentAspectRatio })
         })
             .then(response => response.json())
             .then(data => {
@@ -155,6 +171,75 @@ function regenerateImage(pageNumber, btnElement) {
                 btnElement.disabled = false;
             });
     }
+}
+
+function loadPromptsOnlyView() {
+    fetch('/api/story')
+        .then(response => response.json())
+        .then(story => {
+            const container = document.getElementById('storyContainer');
+            container.classList.remove('hidden');
+            container.innerHTML = '';
+
+            // --- Character Reference Prompts ---
+            const characters = story.characters || [];
+            if (characters.length > 0) {
+                const charHeader = document.createElement('div');
+                charHeader.className = 'section-header';
+                charHeader.innerHTML = `<h2>🎨 Character Reference Sheets</h2>`;
+                container.appendChild(charHeader);
+
+                characters.forEach((char, i) => {
+                    const card = document.createElement('div');
+                    card.className = 'story-card prompts-only-card character-card';
+
+                    const charPrompt = `Character sheet showing the following character: ${char.description}. Multiple views if possible, white background.`;
+
+                    card.innerHTML = `
+                        <div class="story-card-content">
+                            <div class="page-number">Character ${i + 1}</div>
+                            <p class="fi-text">${char.name}</p>
+                            <p class="en-text">${char.description}</p>
+                            <details class="prompt-details">
+                                <summary>📝 Character Prompt</summary>
+                                <p class="prompt-text">${charPrompt}</p>
+                            </details>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            }
+
+            // --- Scene Prompts ---
+            const sceneHeader = document.createElement('div');
+            sceneHeader.className = 'section-header';
+            sceneHeader.innerHTML = `<h2>🖼️ Scene Prompts</h2>`;
+            container.appendChild(sceneHeader);
+
+            story.pages.forEach(page => {
+                const card = document.createElement('div');
+                card.className = 'story-card prompts-only-card';
+
+                card.innerHTML = `
+                    <div class="story-card-content">
+                        <div class="page-number">Page ${page.page_number}</div>
+                        <p class="fi-text">${page.text_fi}</p>
+                        <p class="en-text">${page.text_en}</p>
+                        <details class="prompt-details">
+                            <summary>📝 Image Prompt</summary>
+                            <p class="prompt-text">${page.image_description}</p>
+                        </details>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            // Show prompts download, hide PDF download
+            const downloadSection = document.getElementById('downloadSection');
+            downloadSection.classList.remove('hidden');
+            document.getElementById('pdfDownload').classList.add('hidden');
+            document.getElementById('promptsDownload').classList.remove('hidden');
+        });
 }
 
 function archiveStory() {

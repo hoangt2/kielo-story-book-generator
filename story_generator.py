@@ -23,7 +23,7 @@ from grammar_checker import check_grammar
 from history_manager import load_history, save_to_history, get_used_themes
 from cleanup import cleanup
 
-def generate_story_concept(level="Beginner", theme_category=None, custom_topic=None, page_count=10, custom_setting=None):
+def generate_story_concept(level="A1", theme_category=None, custom_topic=None, page_count=10, custom_setting=None, grammar_feedback=None):
     """Generates the story structure using Gemini Pro."""
     global _current_theme
     
@@ -65,7 +65,8 @@ def generate_story_concept(level="Beginner", theme_category=None, custom_topic=N
         used_themes=used_themes,
         custom_topic=custom_topic,
         page_count=page_count,
-        custom_setting=custom_setting
+        custom_setting=custom_setting,
+        grammar_feedback=grammar_feedback
     )
     
     response = model.generate_content(prompt)
@@ -84,20 +85,35 @@ def get_current_theme():
     """Returns the theme used for the current generation session."""
     return _current_theme
 
-def main(status_callback=None, level="Beginner", max_retries=3, theme_category=None, custom_topic=None, page_count=10, custom_setting=None):
+# Supported aspect ratios and their canvas dimensions
+ASPECT_RATIOS = {
+    "9:16": {"label": "Vertical (9:16)", "width": 1080, "height": 1920},
+    "1:1":  {"label": "Square (1:1)", "width": 1080, "height": 1080},
+    "4:3":  {"label": "Landscape 4:3", "width": 1440, "height": 1080},
+    "3:4":  {"label": "Portrait 3:4", "width": 1080, "height": 1440},
+    "16:9": {"label": "Widescreen (16:9)", "width": 1920, "height": 1080},
+}
+DEFAULT_ASPECT_RATIO = "9:16"
+
+def main(status_callback=None, level="A1", max_retries=5, theme_category=None, custom_topic=None, page_count=10, custom_setting=None, aspect_ratio=None, prompts_only=False):
     def log(message):
         print(message)
         if status_callback:
             status_callback(message)
 
+    if aspect_ratio is None:
+        aspect_ratio = DEFAULT_ASPECT_RATIO
+
     parser = argparse.ArgumentParser(description="Finnish Story Generator")
     parser.add_argument("--output_dir", default="output", help="Directory to save results")
-    parser.add_argument("--level", default=level, choices=["Beginner", "Intermediate", "Advanced"], help="Language difficulty level")
+    parser.add_argument("--level", default=level, choices=["A1", "A2", "B1", "B2", "C1", "C2"], help="CEFR language level (default: A1)")
     parser.add_argument("--max_retries", type=int, default=max_retries, help="Maximum number of retries for grammar check")
     parser.add_argument("--theme", default=theme_category, help="Theme category (winter, spring, summer, autumn, everyday, special)")
     parser.add_argument("--topic", default=custom_topic, help="Custom topic for the story")
     parser.add_argument("--pages", type=int, default=page_count, help="Number of pages for the story")
     parser.add_argument("--setting", default=custom_setting, help="Custom setting for the story")
+    parser.add_argument("--aspect-ratio", default=aspect_ratio, choices=list(ASPECT_RATIOS.keys()), help="Image aspect ratio (default: 9:16)")
+    parser.add_argument("--prompts-only", action="store_true", default=prompts_only, help="Export image prompts only (no image generation)")
     
     # Check if running from script or module
     try:
@@ -111,7 +127,9 @@ def main(status_callback=None, level="Beginner", max_retries=3, theme_category=N
             theme=theme_category,
             topic=custom_topic,
             pages=page_count,
-            setting=custom_setting
+            setting=custom_setting,
+            aspect_ratio=aspect_ratio,
+            prompts_only=prompts_only
         )
 
     # Clean up old output before starting
@@ -119,6 +137,7 @@ def main(status_callback=None, level="Beginner", max_retries=3, theme_category=N
     cleanup(args.output_dir)
 
     # 1. Generate Story with Retry Loop
+    grammar_feedback = None  # Accumulated grammar feedback for retries
     for attempt in range(1, args.max_retries + 1):
         theme_label = args.theme or "random"
         if args.topic:
@@ -126,7 +145,7 @@ def main(status_callback=None, level="Beginner", max_retries=3, theme_category=N
             
         log(f"Generating story concept for {args.level} level, theme: {theme_label}, pages: {args.pages}, setting: {args.setting} (Attempt {attempt}/{args.max_retries})...")
         
-        story = generate_story_concept(level=args.level, theme_category=args.theme, custom_topic=args.topic, page_count=args.pages, custom_setting=args.setting)
+        story = generate_story_concept(level=args.level, theme_category=args.theme, custom_topic=args.topic, page_count=args.pages, custom_setting=args.setting, grammar_feedback=grammar_feedback)
         if not story:
             log("Failed to generate story concept. Retrying...")
             continue
@@ -138,11 +157,15 @@ def main(status_callback=None, level="Beginner", max_retries=3, theme_category=N
         if is_valid:
             log("Grammar check passed!")
             
-            process_story(story, args.output_dir, status_callback)
+            if args.prompts_only:
+                export_prompts(story, args.output_dir, status_callback)
+            else:
+                process_story(story, args.output_dir, status_callback, aspect_ratio=args.aspect_ratio)
             return True  # Success
         else:
             log(f"Grammar check failed: {feedback}")
-            log("Retrying generation...")
+            grammar_feedback = feedback  # Feed back for next attempt
+            log("Retrying with grammar feedback...")
             time.sleep(1)
             
     log("Max retries reached. Failed to generate a grammatically correct story.")
@@ -175,9 +198,11 @@ def generate_character_model(description, output_path):
         print(f"Error generating character model: {e}")
         return False
 
-def generate_image(prompt, output_path, character_description="", reference_image_path=None):
+def generate_image(prompt, output_path, character_description="", reference_image_path=None, aspect_ratio=None):
     """Generates an image using Nano Banana (Gemini 2.5 Flash Image)."""
-    print(f"Generating image for: {prompt[:50]}...")
+    if aspect_ratio is None:
+        aspect_ratio = DEFAULT_ASPECT_RATIO
+    print(f"Generating image for: {prompt[:50]}... (aspect ratio: {aspect_ratio})")
     
     try:
         # Use Nano Banana (Gemini 2.5 Flash Image) for image generation
@@ -201,6 +226,11 @@ def generate_image(prompt, output_path, character_description="", reference_imag
         response = client.models.generate_content(
             model='gemini-2.5-flash-image',
             contents=contents,
+            config=types.GenerateContentConfig(
+                image_config=types.ImageConfig(
+                    aspect_ratio=aspect_ratio,
+                ),
+            ),
         )
         
         # Extract and save the image from the response
@@ -219,14 +249,109 @@ def generate_image(prompt, output_path, character_description="", reference_imag
         # Fallback for testing/mocking if API fails or model not found
         # Create a dummy image for flow verification
         from PIL import Image, ImageDraw
-        img = Image.new('RGB', (1024, 1024), color = 'lightblue')
+        dims = ASPECT_RATIOS.get(aspect_ratio, ASPECT_RATIOS[DEFAULT_ASPECT_RATIO])
+        img = Image.new('RGB', (dims["width"], dims["height"]), color = 'lightblue')
         d = ImageDraw.Draw(img)
         d.text((10,10), "Generated Image Placeholder", fill=(0,0,0))
         img.save(output_path)
         print("Created placeholder image due to API error.")
         return True
 
-def process_story(story, output_dir="output", status_callback=None):
+def export_prompts(story, output_dir="output", status_callback=None):
+    """
+    Exports image prompts for manual image generation.
+    Outputs character prompts first, then scene prompts for each page.
+    """
+    def log(message):
+        print(message)
+        if status_callback:
+            status_callback(message)
+
+    # Create output directories
+    dirs = {
+        "root": output_dir,
+        "data": os.path.join(output_dir, "data")
+    }
+    for d in dirs.values():
+        os.makedirs(d, exist_ok=True)
+
+    log(f"Exporting prompts for: {story.get('title_fi')} / {story.get('title_en')}")
+
+    # Save story JSON for reference
+    with open(os.path.join(dirs["data"], "story.json"), "w", encoding="utf-8") as f:
+        json.dump(story, f, indent=2, ensure_ascii=False)
+
+    # Build prompts document
+    lines = []
+    lines.append(f"# Image Prompts for: {story.get('title_fi')} / {story.get('title_en')}")
+    lines.append(f"# Generated for manual image creation")
+    lines.append("")
+
+    # --- Style Guide ---
+    lines.append("=" * 80)
+    lines.append("STYLE GUIDE (apply to all images)")
+    lines.append("=" * 80)
+    lines.append(IMAGE_STYLE_GUIDE.strip())
+    lines.append("")
+
+    # --- Character Prompts ---
+    characters = story.get("characters", [])
+    if not characters:
+        desc = story.get("character_description")
+        if desc:
+            characters.append({"name": "Main", "description": desc})
+
+    lines.append("=" * 80)
+    lines.append("CHARACTER REFERENCE SHEETS")
+    lines.append("=" * 80)
+    lines.append("")
+
+    for i, char in enumerate(characters, 1):
+        name = char.get("name", "Unknown")
+        desc = char.get("description", "")
+        lines.append(f"--- Character {i}: {name} ---")
+        lines.append(f"Character sheet showing the following character: {desc}. Multiple views if possible, white background.")
+        lines.append("")
+        # Also include a standalone prompt with style guide baked in
+        lines.append(f"Full prompt (with style):")
+        lines.append(f"Character sheet showing the following character: {desc}. Multiple views if possible, white background. {IMAGE_STYLE_GUIDE.strip()}")
+        lines.append("")
+
+    # --- Scene Prompts ---
+    lines.append("=" * 80)
+    lines.append("SCENE PROMPTS (per page)")
+    lines.append("=" * 80)
+    lines.append("")
+
+    for page in story.get("pages", []):
+        page_num = page.get("page_number")
+        page_type = page.get("type", "story")
+        text_fi = page.get("text_fi", "")
+        text_en = page.get("text_en", "")
+        image_desc = page.get("image_description", "")
+
+        lines.append(f"--- Page {page_num} ({page_type}) ---")
+        lines.append(f"Finnish: {text_fi}")
+        lines.append(f"English: {text_en}")
+        lines.append(f"")
+        lines.append(f"Image prompt:")
+        lines.append(f"{image_desc}")
+        lines.append(f"")
+        lines.append(f"Full prompt (with style):")
+        lines.append(f"{image_desc} {IMAGE_STYLE_GUIDE.strip()}")
+        lines.append("")
+
+    # Write prompts file
+    prompts_path = os.path.join(output_dir, "image_prompts.txt")
+    with open(prompts_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+
+    log(f"Image prompts saved to {prompts_path}")
+    log(f"Total: {len(characters)} character(s), {len(story.get('pages', []))} scene(s)")
+    log("Prompts export complete! Use these prompts to generate images manually.")
+
+
+def process_story(story, output_dir="output", status_callback=None, aspect_ratio=None):
     """
     Processes a generated story concept: generates images, cards, and PDF.
     """
@@ -293,7 +418,7 @@ def process_story(story, output_dir="output", status_callback=None):
         # Generate Image
         full_prompt = f"{page.get('image_description')}"
         # We pass the main character's description as a base, but the prompt should now be verbose enough
-        success = generate_image(full_prompt, image_path, main_char_desc, main_model_path)
+        success = generate_image(full_prompt, image_path, main_char_desc, main_model_path, aspect_ratio=aspect_ratio)
         
         if success:
             # Composite
@@ -301,7 +426,8 @@ def process_story(story, output_dir="output", status_callback=None):
                 image_path, 
                 page.get("text_fi"), 
                 page.get("text_en"), 
-                final_path
+                final_path,
+                aspect_ratio=aspect_ratio
             )
         
         # Sleep to avoid rate limits
@@ -318,7 +444,7 @@ def process_story(story, output_dir="output", status_callback=None):
 
 
 
-def regenerate_page_image(page_number, output_dir="output"):
+def regenerate_page_image(page_number, output_dir="output", aspect_ratio=None):
     """
     Regenerates the image for a specific page using the saved story data.
     """
@@ -366,7 +492,7 @@ def regenerate_page_image(page_number, output_dir="output"):
         
         # Generate Image
         full_prompt = f"{page.get('image_description')}"
-        success = generate_image(full_prompt, image_path, main_char_desc, main_model_path)
+        success = generate_image(full_prompt, image_path, main_char_desc, main_model_path, aspect_ratio=aspect_ratio)
         
         if success:
             # Composite
@@ -374,7 +500,8 @@ def regenerate_page_image(page_number, output_dir="output"):
                 image_path, 
                 page.get("text_fi"), 
                 page.get("text_en"), 
-                final_path
+                final_path,
+                aspect_ratio=aspect_ratio
             )
             # Re-compile PDF (optional but good to keep in sync)
             # from pdf_generator import compile_to_pdf

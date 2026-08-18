@@ -14,7 +14,7 @@ generation_state = {
     "logs": []
 }
 
-def run_generation(level="Beginner", theme_category=None, custom_topic=None, page_count=10, custom_setting=None):
+def run_generation(level="A1", theme_category=None, custom_topic=None, page_count=10, custom_setting=None, aspect_ratio=None, prompts_only=False):
     global generation_state
     generation_state["is_generating"] = True
     generation_state["status"] = "Starting..."
@@ -28,7 +28,7 @@ def run_generation(level="Beginner", theme_category=None, custom_topic=None, pag
     try:
         # Clean up first? Maybe optional.
         # For now, just run generation
-        success = generate_story(status_callback=status_callback, level=level, theme_category=theme_category, custom_topic=custom_topic, page_count=page_count, custom_setting=custom_setting)
+        success = generate_story(status_callback=status_callback, level=level, theme_category=theme_category, custom_topic=custom_topic, page_count=page_count, custom_setting=custom_setting, aspect_ratio=aspect_ratio, prompts_only=prompts_only)
         
         # Check if generation failed
         if not success:
@@ -57,18 +57,20 @@ def start_generation():
         return jsonify({"error": "Already generating"}), 400
     
     data = request.get_json() or {}
-    level = data.get("level", "Beginner")
+    level = data.get("level", "A1")
     theme_category = data.get("theme_category", None)
     custom_topic = data.get("custom_topic", None)
     page_count = int(data.get("page_count", 10))
     
     custom_setting = data.get("custom_setting", None)
+    aspect_ratio = data.get("aspect_ratio", None)
+    prompts_only = data.get("prompts_only", False)
     
     # Normalize theme_category (empty string or "random" = None)
     if theme_category in [None, "", "random"]:
         theme_category = None
     
-    thread = threading.Thread(target=run_generation, args=(level, theme_category, custom_topic, page_count, custom_setting))
+    thread = threading.Thread(target=run_generation, args=(level, theme_category, custom_topic, page_count, custom_setting, aspect_ratio, prompts_only))
     thread.start()
     return jsonify({"message": "Generation started"})
 
@@ -143,13 +145,14 @@ def regenerate_image():
         
     data = request.get_json() or {}
     page_number = data.get("page_number")
+    aspect_ratio = data.get("aspect_ratio", None)
     
     if not page_number:
         return jsonify({"error": "Page number is required"}), 400
         
     try:
         from story_generator import regenerate_page_image
-        success, message = regenerate_page_image(int(page_number))
+        success, message = regenerate_page_image(int(page_number), aspect_ratio=aspect_ratio)
         
         if success:
             return jsonify({"message": "Image regenerated successfully", "path": message})

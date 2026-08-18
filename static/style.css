@@ -160,6 +160,141 @@ p {
     border-color: var(--accent);
 }
 
+.aspect-ratio-selector {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.aspect-ratio-selector label {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.aspect-ratio-selector select {
+    background-color: var(--card-bg);
+    color: var(--text-primary);
+    border: 1px solid #334155;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.9rem;
+    cursor: pointer;
+    min-width: 220px;
+}
+
+.aspect-ratio-selector select:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.secondary-btn {
+    background-color: var(--card-bg);
+    color: var(--text-primary);
+    border: 1px solid #334155;
+    padding: 1rem 2rem;
+    border-radius: 50px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    margin-left: 1rem;
+}
+
+.secondary-btn:hover {
+    background-color: #334155;
+    transform: translateY(-2px);
+}
+
+.prompts-only-toggle {
+    display: flex;
+    align-items: center;
+    margin-top: 1rem;
+    width: 100%;
+    justify-content: center;
+}
+
+.toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    cursor: pointer;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    transition: background-color 0.2s;
+}
+
+.toggle-label:hover {
+    background-color: rgba(59, 130, 246, 0.1);
+}
+
+.toggle-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+.prompts-only-card {
+    background-color: var(--card-bg);
+    border-radius: 16px;
+    border: 1px solid #334155;
+    padding: 0;
+}
+
+.prompts-only-card .story-card-content {
+    padding: 1.5rem;
+}
+
+.page-number {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+}
+
+.prompt-details {
+    margin-top: 0.75rem;
+    border-top: 1px solid #334155;
+    padding-top: 0.75rem;
+}
+
+.prompt-details summary {
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    transition: color 0.2s;
+}
+
+.prompt-details summary:hover {
+    color: var(--accent);
+}
+
+.prompt-text {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin-top: 0.5rem;
+    padding: 0.75rem;
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    word-break: break-word;
+}
+
+.prompts-download {
+    background-color: var(--accent) !important;
+}
+
+.prompts-download:hover {
+    background-color: var(--accent-hover) !important;
+}
+
 button {
     background-color: var(--accent);
     color: white;
