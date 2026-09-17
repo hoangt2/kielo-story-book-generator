@@ -1,6 +1,8 @@
 # Prompts for Finnish Story Generator
 import random
 
+from cinematography import CAMERA_STYLE_GUIDE, build_shot_plan, format_shot_plan
+
 # Theme categories for UI selection
 THEME_CATEGORIES = {
     "random": "🎲 Random (Any Theme)",
@@ -116,6 +118,71 @@ def select_theme(category=None, used_themes=None):
     return random.choice(available_themes)
 
 
+# CEFR writing constraints per level, shared with the topic suggester.
+LEVEL_CONSTRAINTS = {
+    "A1": """
+**Constraints:**
+1.  **Level:** A1 (Breakthrough).
+2.  **Sentence Structure:** Very simple Subject-Verb or Subject-Verb-Object only. One clause per sentence.
+3.  **Verb Forms:** Present tense only (minä olen, hän menee). Only 1st and 3rd person singular.
+4.  **Cases:** Nominative and basic Partitive only. No complex case endings.
+5.  **Vocabulary:** Most basic everyday words only (max 200-300 most common Finnish words). Greetings, numbers, colors, family, food.
+6.  **Sentence Length:** 3-6 words per sentence maximum.
+7.  **Grammar:** No negation chains. Simple "ei" negation only. No possessive suffixes.
+""",
+    "A2": """
+**Constraints:**
+1.  **Level:** A2 (Elementary).
+2.  **Sentence Structure:** Simple Subject-Verb-Object (SVO). Avoid complex inversions. Occasional "ja" (and) conjunctions.
+3.  **Verb Forms:** Present (minä asun) and simple past (hän käveli). Minimize perfect tenses/passive.
+4.  **Cases:** Nominative, Partitive, Illative, Inessive. Avoid complex cases.
+5.  **Vocabulary:** Common, everyday words (max 500 most common Finnish words). Daily routines, shopping, weather.
+6.  **Sentence Length:** 5-10 words per sentence maximum.
+7.  **Grammar:** Simple negation. Basic postpositions. No complex verb chains.
+""",
+    "B1": """
+**Constraints:**
+1.  **Level:** B1 (Intermediate).
+2.  **Sentence Structure:** Mix of simple and compound sentences. Basic subordinate clauses with "koska" (because), "kun" (when).
+3.  **Verb Forms:** Present, past, and perfect tenses. Introduce conditional mood (haluaisin). Some passive voice.
+4.  **Cases:** All basic cases including Elative, Adessive, Ablative, Allative. Introduce Essive occasionally.
+5.  **Vocabulary:** Broader vocabulary including common abstract concepts. Opinions, emotions, plans.
+6.  **Sentence Length:** 8-12 words per sentence.
+7.  **Grammar:** Comparative adjectives. Basic relative clauses. Simple infinitive constructions.
+""",
+    "B2": """
+**Constraints:**
+1.  **Level:** B2 (Upper Intermediate).
+2.  **Sentence Structure:** Compound and complex sentences. Multiple subordinate clauses. Relative clauses with "joka".
+3.  **Verb Forms:** All common tenses and moods. Conditional and passive used naturally. Perfect and pluperfect tenses.
+4.  **Cases:** All common cases used naturally including Essive and Translative.
+5.  **Vocabulary:** Rich vocabulary including abstract concepts, less common words, and some idiomatic expressions.
+6.  **Sentence Length:** 10-15 words per sentence.
+7.  **Grammar:** Participial constructions. Complex verb chains. Possessive suffixes.
+""",
+    "C1": """
+**Constraints:**
+1.  **Level:** C1 (Advanced).
+2.  **Sentence Structure:** Complex sentences with multiple clauses, inversions, and varied structures. Natural Finnish word order.
+3.  **Verb Forms:** All tenses and moods including potential mood. Passive voice used frequently and naturally.
+4.  **Cases:** All 15 cases used naturally, including Comitative and Instructive where appropriate.
+5.  **Vocabulary:** Rich, nuanced vocabulary. Some idioms, colloquialisms, and varied register.
+6.  **Sentence Length:** 10-18 words per sentence. Varied for rhythm.
+7.  **Grammar:** Agent participles. Temporal constructions. Nuanced modal expressions.
+""",
+    "C2": """
+**Constraints:**
+1.  **Level:** C2 (Mastery).
+2.  **Sentence Structure:** Fully natural Finnish prose. Complex nested clauses, literary devices, and stylistic variation.
+3.  **Verb Forms:** All tenses, moods, and voices used masterfully. Archaic or literary forms where stylistically appropriate.
+4.  **Cases:** All 15 cases deployed with native-like precision and frequency.
+5.  **Vocabulary:** Extensive vocabulary including literary expressions, proverbs, wordplay, and register-appropriate language.
+6.  **Sentence Length:** 12-25 words per sentence. Varied and rhythmic.
+7.  **Grammar:** Full command of Finnish grammar. Rare constructions, emphasis particles, and discourse markers used naturally.
+"""
+}
+
+
 def get_story_prompt(level="A1", previous_stories=None, theme_category=None, used_themes=None, custom_topic=None, page_count=10, custom_setting=None, grammar_feedback=None):
     """
     Generate a story prompt based on the difficulty level, history, and theme.
@@ -129,70 +196,7 @@ def get_story_prompt(level="A1", previous_stories=None, theme_category=None, use
     """
 
     
-    level_constraints = {
-        "A1": """
-**Constraints:**
-1.  **Level:** A1 (Breakthrough).
-2.  **Sentence Structure:** Very simple Subject-Verb or Subject-Verb-Object only. One clause per sentence.
-3.  **Verb Forms:** Present tense only (minä olen, hän menee). Only 1st and 3rd person singular.
-4.  **Cases:** Nominative and basic Partitive only. No complex case endings.
-5.  **Vocabulary:** Most basic everyday words only (max 200-300 most common Finnish words). Greetings, numbers, colors, family, food.
-6.  **Sentence Length:** 3-6 words per sentence maximum.
-7.  **Grammar:** No negation chains. Simple "ei" negation only. No possessive suffixes.
-""",
-        "A2": """
-**Constraints:**
-1.  **Level:** A2 (Elementary).
-2.  **Sentence Structure:** Simple Subject-Verb-Object (SVO). Avoid complex inversions. Occasional "ja" (and) conjunctions.
-3.  **Verb Forms:** Present (minä asun) and simple past (hän käveli). Minimize perfect tenses/passive.
-4.  **Cases:** Nominative, Partitive, Illative, Inessive. Avoid complex cases.
-5.  **Vocabulary:** Common, everyday words (max 500 most common Finnish words). Daily routines, shopping, weather.
-6.  **Sentence Length:** 5-10 words per sentence maximum.
-7.  **Grammar:** Simple negation. Basic postpositions. No complex verb chains.
-""",
-        "B1": """
-**Constraints:**
-1.  **Level:** B1 (Intermediate).
-2.  **Sentence Structure:** Mix of simple and compound sentences. Basic subordinate clauses with "koska" (because), "kun" (when).
-3.  **Verb Forms:** Present, past, and perfect tenses. Introduce conditional mood (haluaisin). Some passive voice.
-4.  **Cases:** All basic cases including Elative, Adessive, Ablative, Allative. Introduce Essive occasionally.
-5.  **Vocabulary:** Broader vocabulary including common abstract concepts. Opinions, emotions, plans.
-6.  **Sentence Length:** 8-12 words per sentence.
-7.  **Grammar:** Comparative adjectives. Basic relative clauses. Simple infinitive constructions.
-""",
-        "B2": """
-**Constraints:**
-1.  **Level:** B2 (Upper Intermediate).
-2.  **Sentence Structure:** Compound and complex sentences. Multiple subordinate clauses. Relative clauses with "joka".
-3.  **Verb Forms:** All common tenses and moods. Conditional and passive used naturally. Perfect and pluperfect tenses.
-4.  **Cases:** All common cases used naturally including Essive and Translative.
-5.  **Vocabulary:** Rich vocabulary including abstract concepts, less common words, and some idiomatic expressions.
-6.  **Sentence Length:** 10-15 words per sentence.
-7.  **Grammar:** Participial constructions. Complex verb chains. Possessive suffixes.
-""",
-        "C1": """
-**Constraints:**
-1.  **Level:** C1 (Advanced).
-2.  **Sentence Structure:** Complex sentences with multiple clauses, inversions, and varied structures. Natural Finnish word order.
-3.  **Verb Forms:** All tenses and moods including potential mood. Passive voice used frequently and naturally.
-4.  **Cases:** All 15 cases used naturally, including Comitative and Instructive where appropriate.
-5.  **Vocabulary:** Rich, nuanced vocabulary. Some idioms, colloquialisms, and varied register.
-6.  **Sentence Length:** 10-18 words per sentence. Varied for rhythm.
-7.  **Grammar:** Agent participles. Temporal constructions. Nuanced modal expressions.
-""",
-        "C2": """
-**Constraints:**
-1.  **Level:** C2 (Mastery).
-2.  **Sentence Structure:** Fully natural Finnish prose. Complex nested clauses, literary devices, and stylistic variation.
-3.  **Verb Forms:** All tenses, moods, and voices used masterfully. Archaic or literary forms where stylistically appropriate.
-4.  **Cases:** All 15 cases deployed with native-like precision and frequency.
-5.  **Vocabulary:** Extensive vocabulary including literary expressions, proverbs, wordplay, and register-appropriate language.
-6.  **Sentence Length:** 12-25 words per sentence. Varied and rhythmic.
-7.  **Grammar:** Full command of Finnish grammar. Rare constructions, emphasis particles, and discourse markers used naturally.
-"""
-    }
-    
-    constraints = level_constraints.get(level, level_constraints["A1"])
+    constraints = LEVEL_CONSTRAINTS.get(level, LEVEL_CONSTRAINTS["A1"])
     
     # Build history context
     history_context = ""
@@ -251,6 +255,10 @@ The user has requested a story about: **{custom_topic}**
     else:
         setting_instruction += "A REAL, specific location in Finland (e.g., Helsinki, Tampere, Turku, Oulu, Rovaniemi, Porvoo, at home, at school, at work, etc.). AVOID repetitive famous tourist spots (like Helsinki Market Square) unless specifically requested. Use diverse settings: libraries, parks, suburbs, small towns, nature trails, etc."
 
+    # One camera framing per page, so the illustrations do not all end up as the
+    # same straight-on mid shot (see cinematography.py).
+    shot_plan_instruction = format_shot_plan(build_shot_plan(page_count))
+
     return f"""
 You are a Finnish language learning content creator. Your goal is to generate an engaging and UNIQUE story for {level} level learners.
 
@@ -280,6 +288,8 @@ Pay extra attention to:
     - BAD: "Sofia is smiling."
     - GOOD: "Sofia, a young girl with curly blonde hair wearing a blue dress, is smiling."
 
+{shot_plan_instruction}
+
 **TITLE GUIDELINES:**
 - Do NOT use "[Activity] in [Place]" format (e.g., avoid "Ice Cream Summer in Tampere", "Swimming in Helsinki").
 - Do NOT use overly dramatic or mysterious titles (e.g., avoid "The Sweet Mystery", "The Secret Recipe", "The Hidden Truth").
@@ -303,49 +313,49 @@ Pay extra attention to:
       "type": "cover",
       "text_fi": "Title of the story",
       "text_en": "Title of the story",
-      "image_description": "Visual description for the cover image. INCLUDE FULL CHARACTER DETAILS."
+      "image_description": "HERO POSTER SHOT: visual description of the cover framing and scene. INCLUDE FULL CHARACTER DETAILS."
     }},
     {{
       "page_number": 2,
       "type": "story",
       "text_fi": "Finnish text...",
       "text_en": "English translation...",
-      "image_description": "Visual description... REMEMBER TO DESCRIBE CHARACTERS FULLY."
+      "image_description": "<THIS PAGE'S ASSIGNED SHOT NAME>: visual description written so the camera angle, height and distance are unmistakable. REMEMBER TO DESCRIBE CHARACTERS FULLY."
     }},
     {{
       "page_number": 3,
       "type": "story",
       "text_fi": "Finnish text...",
       "text_en": "English translation...",
-      "image_description": "Visual description..."
+      "image_description": "<THIS PAGE'S ASSIGNED SHOT NAME>: visual description..."
     }},
     {{
       "page_number": 4,
       "type": "story",
       "text_fi": "Finnish text...",
       "text_en": "English translation...",
-      "image_description": "Visual description..."
+      "image_description": "<THIS PAGE'S ASSIGNED SHOT NAME>: visual description..."
     }},
     {{
       "page_number": 5,
       "type": "story",
       "text_fi": "Finnish text...",
       "text_en": "English translation...",
-      "image_description": "Visual description..."
+      "image_description": "<THIS PAGE'S ASSIGNED SHOT NAME>: visual description..."
     }},
     {{
       "page_number": 6,
       "type": "story",
       "text_fi": "Finnish text...",
       "text_en": "English translation...",
-      "image_description": "Visual description..."
+      "image_description": "<THIS PAGE'S ASSIGNED SHOT NAME>: visual description..."
     }},
     {{
       "page_number": 7,
       "type": "story",
       "text_fi": "Finnish text...",
       "text_en": "English translation...",
-      "image_description": "Visual description..."
+      "image_description": "<THIS PAGE'S ASSIGNED SHOT NAME>: visual description..."
     }}
   ]
 }}
@@ -358,4 +368,4 @@ Do not use gradients, 3D rendering, or complex shading. Characters should have f
 High quality vector-art style.
 
 IMPORTANT: Do NOT include any text, words, letters, or numbers in the image. The image should be purely visual.
-"""
+""" + CAMERA_STYLE_GUIDE

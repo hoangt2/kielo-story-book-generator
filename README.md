@@ -7,9 +7,16 @@ An AI-powered tool that generates illustrated Finnish language learning stories 
 - 🎨 **AI-Generated Stories**: Creates unique stories set in real Finnish cities
 - 📚 **Multiple Difficulty Levels**: Beginner (A1-A2), Intermediate (B1-B2), Advanced (C1-C2)
 - ✍️ **Custom Topics**: Create stories about any topic you choose
+- 💡 **AI Topic Suggestions**: Topic ideas written for the chosen CEFR level, generated only when
+  you ask for them and cached afterwards. Each fills in the topic, setting and a suitable page
+  count, and says which grammar it drills. Ideas never repeat, skip topics you have already made
+  into books, and fall back to a built-in list if the API is unavailable (see `topic_suggestions.py`)
 - 📄 **Adjustable Length**: Control story length (3-20 pages)
 - 👥 **Multi-Character Support**: Randomly generates 1-3 main characters per story
 - 🖼️ **Illustrated Pages**: Modern flat illustration style with character consistency
+- 🎬 **Comic-Style Camera Work**: Every page gets its own framing — establishing wides, close-ups,
+  worm's-eye angles, first-person POV, top-down detail shots — planned in a comic rhythm so no two
+  consecutive pages look alike (see `cinematography.py`)
 - 📱 **Story Cards**: Bilingual (Finnish/English) cards optimized for mobile viewing
 - 📄 **PDF Export**: Automatically compiles stories into printable PDF books
 - 🌐 **Web Interface**: Beautiful dark-mode UI with real-time progress tracking

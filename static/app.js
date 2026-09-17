@@ -2,6 +2,150 @@ let isGenerating = false;
 let currentAspectRatio = '9:16';
 let currentPromptsOnly = false;
 
+// --- Topic suggestions -------------------------------------------------------
+
+const suggestionCache = {};
+let suggestionsOpen = false;
+
+function getSelectedLevel() {
+    return document.getElementById('levelSelect').value;
+}
+
+function fetchSuggestions(level, { refresh = false, cachedOnly = false } = {}) {
+    // The model costs tokens, so it is only asked when ideas are actually
+    // wanted: opening the panel on a level with none yet, or "New ideas".
+    // Everything else reuses what has already been generated.
+    if (!refresh && suggestionCache[level]) return Promise.resolve(suggestionCache[level]);
+
+    let url = `/api/suggestions?level=${encodeURIComponent(level)}`;
+    if (refresh) url += '&refresh=1';
+    if (cachedOnly) url += '&cached=1';
+
+    return fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            // Only remember real ideas — a curated stand-in must not stick.
+            if (data.source === 'ai') suggestionCache[level] = data;
+            return data;
+        });
+}
+
+function buildSuggestionCard(suggestion) {
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'suggestion-card';
+
+    const topic = document.createElement('span');
+    topic.className = 'suggestion-topic';
+    topic.textContent = suggestion.topic;
+
+    const meta = document.createElement('span');
+    meta.className = 'suggestion-meta';
+    meta.textContent = `📍 ${suggestion.setting} · 📄 ${suggestion.pages} pages`;
+
+    const drills = document.createElement('span');
+    drills.className = 'suggestion-drills';
+    drills.textContent = `Drills: ${suggestion.drills}`;
+
+    card.appendChild(topic);
+    card.appendChild(meta);
+    card.appendChild(drills);
+    card.addEventListener('click', () => applySuggestion(suggestion));
+    return card;
+}
+
+function paintSuggestions(level, data) {
+    if (!suggestionsOpen || getSelectedLevel() !== level) return false;
+
+    const list = document.getElementById('suggestionList');
+    document.getElementById('suggestionHint').textContent = data.source === 'curated'
+        ? `${data.hint} Built-in ideas — press 🔄 New ideas to write fresh ones.`
+        : data.hint;
+    list.innerHTML = '';
+    data.suggestions.forEach(suggestion => {
+        list.appendChild(buildSuggestionCard(suggestion));
+    });
+    return true;
+}
+
+function renderSuggestions(options = {}) {
+    const level = getSelectedLevel();
+    const hint = document.getElementById('suggestionHint');
+    const list = document.getElementById('suggestionList');
+    const refreshBtn = document.getElementById('suggestionRefresh');
+
+    const willGenerate = !options.cachedOnly && (options.refresh || !suggestionCache[level]);
+
+    if (willGenerate) {
+        // Writing a batch takes a while. Fill the panel with the built-in ideas
+        // meanwhile — that request never reaches the model — so the panel is
+        // usable immediately instead of sitting empty.
+        hint.textContent = `Writing ${level} topic ideas…`;
+        list.innerHTML = '';
+        refreshBtn.disabled = true;
+
+        fetchSuggestions(level, { cachedOnly: true })
+            .then(data => {
+                if (!suggestionCache[level] && refreshBtn.disabled) {
+                    if (paintSuggestions(level, data)) {
+                        hint.textContent = `${data.hint} Built-in ideas — writing fresh ones…`;
+                    }
+                }
+            })
+            .catch(() => {});
+    }
+
+    fetchSuggestions(level, options)
+        .then(data => paintSuggestions(level, data))
+        .catch(err => {
+            console.error(err);
+            if (getSelectedLevel() === level) hint.textContent = 'Could not load topic ideas.';
+        })
+        .finally(() => {
+            refreshBtn.disabled = false;
+        });
+}
+
+function refreshSuggestions() {
+    renderSuggestions({ refresh: true });
+}
+
+function toggleSuggestions() {
+    const panel = document.getElementById('suggestionPanel');
+    suggestionsOpen = !suggestionsOpen;
+    panel.classList.toggle('hidden', !suggestionsOpen);
+    if (suggestionsOpen) renderSuggestions();
+}
+
+function applySuggestion(suggestion) {
+    document.getElementById('customTopic').value = suggestion.topic;
+    document.getElementById('customSetting').value = suggestion.setting;
+    document.getElementById('pageCount').value = suggestion.pages;
+
+    // Custom topics override the theme dropdown, so make that explicit.
+    document.getElementById('themeSelect').value = 'random';
+
+    suggestionsOpen = false;
+    document.getElementById('suggestionPanel').classList.add('hidden');
+
+    const topicBox = document.getElementById('customTopic');
+    topicBox.classList.add('topic-applied');
+    setTimeout(() => topicBox.classList.remove('topic-applied'), 800);
+}
+
+function applyRandomSuggestion() {
+    fetchSuggestions(getSelectedLevel(), { cachedOnly: true }).then(data => {
+        const pool = data.suggestions;
+        if (!pool.length) return;
+        applySuggestion(pool[Math.floor(Math.random() * pool.length)]);
+    });
+}
+
+function onLevelChange() {
+    // No generation on a level switch — that is not a request for new ideas.
+    if (suggestionsOpen) renderSuggestions({ cachedOnly: true });
+}
+
 function startGeneration() {
     if (isGenerating) return;
 
@@ -260,6 +404,9 @@ function archiveStory() {
 
 // Load existing story on startup if available
 window.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('levelSelect').addEventListener('change', onLevelChange);
+    onLevelChange();
+
     fetch('/api/story')
         .then(response => {
             if (response.ok) loadStory();

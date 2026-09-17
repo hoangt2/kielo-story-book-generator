@@ -51,6 +51,36 @@ def get_themes():
     from prompts import get_theme_categories
     return jsonify(get_theme_categories())
 
+@app.route('/api/suggestions')
+def suggest_topics():
+    """
+    Returns topic suggestions for the requested difficulty level.
+
+    The model is only called when ideas are actually asked for: a cold level
+    generates one batch, `?refresh=1` generates another, and `?cached=1` never
+    generates at all. Generated batches are cached per level, and the built-in
+    list stands in whenever generation is skipped or fails.
+    """
+    from topic_suggestions import get_suggestions, get_level_hint
+
+    level = request.args.get("level", "A1")
+    refresh = request.args.get("refresh") == "1"      # always generate a new batch
+    cached_only = request.args.get("cached") == "1"   # never call the model
+    try:
+        count = int(request.args.get("count", 6))
+    except (TypeError, ValueError):
+        count = 6
+    count = max(3, min(10, count))
+
+    suggestions, source = get_suggestions(
+        level, count=count, refresh=refresh, allow_generate=not cached_only)
+    return jsonify({
+        "level": level,
+        "hint": get_level_hint(level),
+        "source": source,
+        "suggestions": suggestions,
+    })
+
 @app.route('/api/generate', methods=['POST'])
 def start_generation():
     if generation_state["is_generating"]:

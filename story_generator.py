@@ -6,6 +6,7 @@ import google.generativeai as genai
 from google import genai as imagen_client
 from google.genai import types
 from prompts import IMAGE_STYLE_GUIDE
+from cinematography import camera_directive, camera_reminder, framing_note
 from image_composer import create_story_card
 import time
 
@@ -208,8 +209,12 @@ def generate_image(prompt, output_path, character_description="", reference_imag
         # Use Nano Banana (Gemini 2.5 Flash Image) for image generation
         client = imagen_client.Client(api_key=GOOGLE_API_KEY)
         
-        # Combine character description with the specific page prompt and style guide
-        full_prompt = f"{character_description} {prompt} {IMAGE_STYLE_GUIDE}"
+        # Lead with the camera direction — buried mid-paragraph it gets ignored —
+        # then the characters, the page's own description, the style guide, and
+        # any framing advice this canvas needs (9:16 cards overlay text).
+        full_prompt = (f"{camera_directive(prompt)} {character_description} {prompt} "
+                       f"{IMAGE_STYLE_GUIDE}{framing_note(aspect_ratio)}"
+                       f"{camera_reminder(prompt)}")
         
         contents = [full_prompt]
         

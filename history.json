@@ -256,5 +256,116 @@
       "season": "Any",
       "category": "custom"
     }
+  },
+  {
+    "title_fi": "Lina katsoo värejä",
+    "title_en": "Lina Looks at Colors",
+    "characters": [
+      "Lina",
+      "Lukas"
+    ],
+    "theme": {
+      "setting": "a Helsinki street in autumn",
+      "activity": "A child walks to daycare and names the color of everything she sees. Drills tämä on + adjective, colors.",
+      "season": "Any",
+      "category": "custom"
+    }
+  },
+  {
+    "title_fi": "Eläimiä laskemassa",
+    "title_en": "Counting Animals",
+    "characters": [
+      "Marja",
+      "Leo"
+    ],
+    "theme": {
+      "setting": "a small city farm in Finland's countryside",
+      "activity": "A grandmother and a child count the animals at a petting farm",
+      "season": "Any",
+      "category": "custom"
+    }
+  },
+  {
+    "title_fi": "Kesäpäivä laiturilla",
+    "title_en": "A Summer Day on the Pier",
+    "characters": [
+      "Pekka",
+      "Turre"
+    ],
+    "theme": {
+      "setting": "a quiet lake shore in Ruovesi",
+      "activity": "A man sits on a wooden pier at a summer cottage and catches fish.",
+      "season": "Any",
+      "category": "custom"
+    }
+  },
+  {
+    "title_fi": "Kesäpäivä laiturilla",
+    "title_en": "A Summer Day on the Pier",
+    "characters": [
+      "Pekka",
+      "Turre"
+    ],
+    "theme": {
+      "setting": "a quiet lake shore in Ruovesi",
+      "activity": "A man sits on a wooden pier at a summer cottage and catches fish.",
+      "season": "Any",
+      "category": "custom"
+    }
+  },
+  {
+    "title_fi": "Mayan lämmin keitto",
+    "title_en": "Maya's Warm Soup",
+    "characters": [
+      "Maya",
+      "Leo"
+    ],
+    "theme": {
+      "setting": "a student apartment in Turku",
+      "activity": "A young student cooks warm vegetable soup in a small kitchen.",
+      "season": "Any",
+      "category": "custom"
+    }
+  },
+  {
+    "title_fi": "Karin iltapala",
+    "title_en": "Kari's Evening Snack",
+    "characters": [
+      "Kari"
+    ],
+    "theme": {
+      "setting": "a large grocery store in Espoo",
+      "activity": "A man buys fresh rye bread and yellow cheese in a supermarket.",
+      "season": "Any",
+      "category": "custom"
+    }
+  },
+  {
+    "title_fi": "Sofia ja pieni kissa",
+    "title_en": "Sofia and the Little Cat",
+    "characters": [
+      "Sofia",
+      "Nanu"
+    ],
+    "theme": {
+      "setting": "a cozy living room in Rovaniemi",
+      "activity": "A girl plays with a small cat and gives it white milk.",
+      "season": "Any",
+      "category": "custom"
+    }
+  },
+  {
+    "title_fi": "Sofia ja pieni kissa",
+    "title_en": "Sofia and the Little Cat",
+    "characters": [
+      "Sofia",
+      "Nanu"
+    ],
+    "theme": {
+      "setting": "a cozy living room in Rovaniemi",
+      "activity": "A girl plays with a small cat and gives it white milk.",
+      "season": "Any",
+      "category": "custom"
+    }
   }
 ]

@@ -39,6 +39,113 @@ def _load_font(candidates, size):
     except TypeError:
         return ImageFont.load_default()
 
+# Some illustrations come back with a drawn frame: a light paper margin, often
+# with a thin dark rule just inside it. On a full-bleed card that reads as a
+# rendering bug, and in a split card it doubles the padding — so it gets cropped
+# off before compositing. Deliberately conservative: a frame is thin and shows
+# up on nearly every side, so a bright sky or a snowy edge is left alone.
+_FRAME_MAX_TRIM = 0.15      # never remove more than 15% of a side
+_FRAME_LIGHT_MIN = 190      # a paper margin is at least this bright (edges antialias)
+_FRAME_DARK_MAX = 140       # the rule drawn inside it is at most this bright
+_FRAME_MIN_SIDES = 3        # a real frame surrounds the artwork
+_FRAME_SOFT_MAX_TRIM = 0.06  # a ruleless margin is only believed if it is thin
+
+
+def _strip_is(img, box, kind):
+    """True when every pixel in the 1px strip `box` is uniformly light/dark."""
+    extrema = img.crop(box).getextrema()
+    if kind == "light":
+        return all(low >= _FRAME_LIGHT_MIN for low, _ in extrema)
+    return all(high <= _FRAME_DARK_MAX for _, high in extrema)
+
+
+def _frame_inset(img, side, require_rule=True):
+    """
+    Measures the drawn frame's thickness on one side, or 0 if there is none.
+
+    `require_rule` demands a dark rule behind the bright margin, which is what
+    tells a drawn frame apart from a pale sky. Once the other sides have proved
+    a frame exists, the last side can be measured without it.
+    """
+    width, height = img.size
+    span = height if side in ("top", "bottom") else width
+    limit = int(span * _FRAME_MAX_TRIM)
+
+    # `inset` shortens the strip at both ends. The dark rule stops where the
+    # side margins begin, so its corners are still bright — testing the full
+    # width would never see a uniformly dark line.
+    def strip(offset, inset):
+        if side == "top":
+            return (inset, offset, width - inset, offset + 1)
+        if side == "bottom":
+            return (inset, height - offset - 1, width - inset, height - offset)
+        if side == "left":
+            return (offset, inset, offset + 1, height - inset)
+        return (width - offset - 1, inset, width, height - inset)
+
+    cross_span = width if side in ("top", "bottom") else height
+    light_inset = int(cross_span * 0.02)
+    rule_inset = int(cross_span * 0.20)
+
+    offset = 0
+    while offset < limit and _strip_is(img, strip(offset, light_inset), "light"):
+        offset += 1
+
+    # No margin here, or a bright region too thick to be one (sky, snow, wall).
+    if offset == 0 or offset >= limit:
+        return 0
+
+    # A drawn frame puts a dark rule between the margin and the artwork. Requiring
+    # it is what separates a real frame from a pale sky running off the edge.
+    if not require_rule:
+        return offset
+
+    # The rule sits at the margin's inner edge, a couple of antialiased rows in.
+    scan_limit = min(limit, offset + 5)
+    while offset < scan_limit and not _strip_is(img, strip(offset, rule_inset), "dark"):
+        offset += 1
+    if offset >= scan_limit:
+        return 0  # bright edge with no rule behind it — sky or snow, not a frame
+
+    while offset < limit and _strip_is(img, strip(offset, rule_inset), "dark"):
+        offset += 1
+    return offset
+
+
+def _trim_drawn_frame(img):
+    """Crops a drawn border/margin off an illustration, if it has one."""
+    if img.mode != "RGB":
+        img = img.convert("RGB")
+
+    sides = ("top", "bottom", "left", "right")
+    span = {"top": img.height, "bottom": img.height, "left": img.width, "right": img.width}
+
+    insets = {side: _frame_inset(img, side) for side in sides}
+    if sum(1 for inset in insets.values() if inset > 0) >= _FRAME_MIN_SIDES:
+        # A frame is confirmed; measure any side whose own rule was not clean
+        # enough to see, so we do not crop three edges and leave a lopsided fourth.
+        for side in sides:
+            if insets[side] == 0:
+                insets[side] = _frame_inset(img, side, require_rule=False)
+    else:
+        # No rule drawn, but some images come back with a soft light margin on
+        # every side. Believe that only while it stays thin — then the worst case
+        # is shaving a sliver of sky off an image that never had a margin.
+        loose = {side: _frame_inset(img, side, require_rule=False) for side in sides}
+        insets = {side: inset if 0 < inset <= span[side] * _FRAME_SOFT_MAX_TRIM else 0
+                  for side, inset in loose.items()}
+        if sum(1 for inset in insets.values() if inset > 0) < _FRAME_MIN_SIDES:
+            return img
+
+    box = (insets["left"], insets["top"],
+           img.width - insets["right"], img.height - insets["bottom"])
+    if box[2] - box[0] < img.width // 2 or box[3] - box[1] < img.height // 2:
+        return img  # something is off; leave the image alone
+
+    print(f"Trimmed drawn frame: {insets}")
+    return img.crop(box)
+
+
 def _wrap_text_to_width(draw, text, font, max_width):
     """Wrap text to fit within max_width pixels."""
     words = text.split()
@@ -164,7 +271,7 @@ def _create_fullbleed_card(image_path, finnish_text, english_text, output_path, 
     
     # Load and resize image to fill canvas (cover mode)
     try:
-        img = Image.open(image_path)
+        img = _trim_drawn_frame(Image.open(image_path))
         # Scale to cover the canvas
         img_ratio = img.width / img.height
         canvas_ratio = canvas_width / canvas_height
@@ -261,7 +368,7 @@ def _create_split_card(image_path, finnish_text, english_text, output_path, canv
     
     # Load and resize image to fill image area (cover mode)
     try:
-        img = Image.open(image_path)
+        img = _trim_drawn_frame(Image.open(image_path))
         img_ratio = img.width / img.height
         area_ratio = canvas_width / image_area_height
         

@@ -116,7 +116,8 @@ p {
     font-size: 0.9rem;
 }
 
-.custom-topic-selector input {
+.custom-topic-selector input,
+.custom-topic-selector textarea {
     background-color: var(--card-bg);
     color: var(--text-primary);
     border: 1px solid #334155;
@@ -127,9 +128,152 @@ p {
     min-width: 250px;
 }
 
-.custom-topic-selector input:focus {
+.custom-topic-selector input:focus,
+.custom-topic-selector textarea:focus {
     outline: none;
     border-color: var(--accent);
+}
+
+/* Custom topic block: full-width column so the topic box has room to breathe */
+.topic-group {
+    flex-basis: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.9rem;
+}
+
+.topic-block {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    max-width: 760px;
+    gap: 0.4rem;
+}
+
+.topic-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.topic-block textarea {
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 5.5rem;
+    padding: 0.75rem 1rem;
+    line-height: 1.5;
+    resize: vertical;
+}
+
+.topic-block input {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.topic-applied {
+    border-color: var(--success) !important;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+    transition: box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+/* Topic suggestions */
+.topic-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.ghost-btn {
+    background-color: transparent;
+    color: var(--text-secondary);
+    border: 1px solid #334155;
+    padding: 0.35rem 0.85rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    border-radius: 20px;
+    box-shadow: none;
+}
+
+.ghost-btn:hover {
+    background-color: rgba(59, 130, 246, 0.12);
+    border-color: var(--accent);
+    color: var(--text-primary);
+    transform: none;
+}
+
+.suggestion-panel {
+    background-color: rgba(0, 0, 0, 0.2);
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 0.9rem;
+    margin-top: 0.25rem;
+}
+
+.suggestion-panel-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.suggestion-panel-header .ghost-btn {
+    flex-shrink: 0;
+}
+
+.suggestion-hint {
+    font-size: 0.8rem;
+    line-height: 1.45;
+    margin: 0;
+    color: var(--text-secondary);
+}
+
+.suggestion-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
+    gap: 0.6rem;
+    max-height: 340px;
+    overflow-y: auto;
+}
+
+.suggestion-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    text-align: left;
+    background-color: var(--card-bg);
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 0.75rem 0.9rem;
+    font-size: 0.85rem;
+    font-weight: 400;
+    box-shadow: none;
+    cursor: pointer;
+}
+
+.suggestion-card:hover {
+    border-color: var(--accent);
+    background-color: #253449;
+    transform: none;
+}
+
+.suggestion-topic {
+    color: var(--text-primary);
+    font-weight: 500;
+    line-height: 1.35;
+}
+
+.suggestion-meta {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+}
+
+.suggestion-drills {
+    color: #a78bfa;
+    font-size: 0.75rem;
 }
 
 .page-count-selector {

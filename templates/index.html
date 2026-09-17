@@ -41,13 +41,32 @@
                         <option value="special">✨ Special Occasions</option>
                     </select>
                 </div>
-                <div class="custom-topic-selector">
-                    <label for="customTopic">Or Custom Topic (optional):</label>
-                    <input type="text" id="customTopic" placeholder="e.g. A space adventure in Helsinki">
+                <div class="topic-group">
+                <div class="custom-topic-selector topic-block">
+                    <div class="topic-header">
+                        <label for="customTopic">Or Custom Topic (optional):</label>
+                        <div class="topic-actions">
+                            <button type="button" class="ghost-btn" id="suggestToggle" onclick="toggleSuggestions()">
+                                💡 Suggest topics
+                            </button>
+                            <button type="button" class="ghost-btn" onclick="applyRandomSuggestion()">🎲 Surprise me</button>
+                        </div>
+                    </div>
+                    <textarea id="customTopic" rows="3"
+                        placeholder="e.g. A snowman in a yard melts a little every day until it is gone"></textarea>
+                    <div id="suggestionPanel" class="suggestion-panel hidden">
+                        <div class="suggestion-panel-header">
+                            <p class="suggestion-hint" id="suggestionHint">Thinking up ideas…</p>
+                            <button type="button" class="ghost-btn" id="suggestionRefresh"
+                                onclick="refreshSuggestions()">🔄 New ideas</button>
+                        </div>
+                        <div id="suggestionList" class="suggestion-list"></div>
+                    </div>
                 </div>
-                <div class="custom-topic-selector">
+                <div class="custom-topic-selector topic-block">
                     <label for="customSetting">Setting / Place (Optional):</label>
                     <input type="text" id="customSetting" placeholder="e.g. A quiet library, Turku, Grandma's house...">
+                </div>
                 </div>
                 <div class="page-count-selector">
                     <label for="pageCount">Number of Pages:</label>
