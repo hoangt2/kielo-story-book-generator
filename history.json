@@ -367,5 +367,159 @@
       "season": "Any",
       "category": "custom"
     }
+  },
+  {
+    "title_fi": "Siivouspäivä",
+    "title_en": "Cleaning Day",
+    "characters": [
+      "Ali",
+      "Leo"
+    ],
+    "theme": {
+      "setting": "a sunny living room in a Helsinki apartment",
+      "activity": "A father cleans the living room by wiping the table and washing the floor.",
+      "season": "Any",
+      "category": "custom"
+    }
+  },
+  {
+    "title_fi": "Lotta ja syksyn värit",
+    "title_en": "Lotta and the Autumn Colors",
+    "characters": [
+      "Lotta",
+      "Aapo"
+    ],
+    "theme": {
+      "setting": "a leafy street in Turku in autumn",
+      "activity": "A child walks to daycare and names the colour of everything she sees",
+      "season": "Any",
+      "category": "custom"
+    }
+  },
+  {
+    "title_fi": "Lotta ja syksyn värit",
+    "title_en": "Lotta and the Autumn Colors",
+    "characters": [
+      "Lotta",
+      "Aapo"
+    ],
+    "theme": {
+      "setting": "a leafy street in Turku in autumn",
+      "activity": "A child walks to daycare and names the colour of everything she sees",
+      "season": "Any",
+      "category": "custom"
+    }
+  },
+  {
+    "title_fi": "Lämmin sauna",
+    "title_en": "The Warm Sauna",
+    "characters": [
+      "Pekka",
+      "Pörri"
+    ],
+    "theme": {
+      "setting": "a traditional lakeside summer cottage in Ruovesi",
+      "activity": "An old man carries firewood and heats a lakeside sauna in the autumn.",
+      "season": "Any",
+      "category": "custom"
+    }
+  },
+  {
+    "title_fi": "Lukas ja lämmin kahvila",
+    "title_en": "Lukas and the Warm Café",
+    "characters": [
+      "Lukas",
+      "Emilia"
+    ],
+    "theme": {
+      "setting": "a small café in Turku",
+      "activity": "A student drinks hot coffee and eats a sweet cinnamon bun in a cozy café.",
+      "season": "Any",
+      "category": "custom"
+    }
+  },
+  {
+    "title_fi": "Anni-mummon villasukka",
+    "title_en": "Grandma Anni's Wool Sock",
+    "characters": [
+      "Anni-mummo",
+      "Kusti"
+    ],
+    "theme": {
+      "setting": "a cozy living room in Rovaniemi",
+      "activity": "An elderly grandmother knits a long striped wool sock in a warm living room.",
+      "season": "Any",
+      "category": "custom"
+    }
+  },
+  {
+    "title_fi": "Leo laskee autoja",
+    "title_en": "Leo Counts Cars",
+    "characters": [
+      "Leo",
+      "Miuku"
+    ],
+    "theme": {
+      "setting": "an apartment window in Joensuu",
+      "activity": "A young boy stands by the window and counts different colored cars on the street.",
+      "season": "Any",
+      "category": "custom"
+    }
+  },
+  {
+    "title_fi": "Eeli rakentaa lumiukon",
+    "title_en": "Eeli Builds a Snowman",
+    "characters": [
+      "Eeli",
+      "Muru"
+    ],
+    "theme": {
+      "setting": "a snowy backyard in Oulu",
+      "activity": "A young child builds a big white snowman in a snowy backyard.",
+      "season": "Any",
+      "category": "custom"
+    }
+  },
+  {
+    "title_fi": "Leon saunailta",
+    "title_en": "Leo's Sauna Evening",
+    "characters": [
+      "Leo",
+      "Matti"
+    ],
+    "theme": {
+      "setting": "a Finnish home sauna on a Saturday evening",
+      "activity": "A small child's first sauna with dad: hot, water, steam, then juice",
+      "season": "Any",
+      "category": "custom"
+    }
+  },
+  {
+    "title_fi": "Samun suuri voileipä",
+    "title_en": "Samu's Big Sandwich",
+    "characters": [
+      "Samu",
+      "Misu"
+    ],
+    "theme": {
+      "setting": "a bright kitchen in a suburban Espoo home",
+      "activity": "A young boy makes a large sandwich with cheese and green cucumber.",
+      "season": "Any",
+      "category": "custom"
+    }
+  },
+  {
+    "title_fi": "Aurinkoinen aamupala",
+    "title_en": "Sunny Breakfast",
+    "characters": [
+      "Elena",
+      "Emil"
+    ],
+    "theme": {
+      "setting": "A wooden summer cottage terrace by Lake Saimaa",
+      "activity": "A mother sets a breakfast table with milk, rye bread, and blueberries on a sunny cottage terrace.",
+      "season": "Any",
+      "category": "custom"
+    }
   }
 ]

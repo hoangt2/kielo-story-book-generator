@@ -288,6 +288,12 @@ Pay extra attention to:
     - BAD: "Sofia is smiling."
     - GOOD: "Sofia, a young girl with curly blonde hair wearing a blue dress, is smiling."
 
+**CRITICAL INSTRUCTION: NARRATIVE PERSPECTIVE CONSISTENCY**
+- Choose ONE narrative perspective for the entire story and keep it consistent on EVERY page.
+- If the story uses 3rd person (hän, Samu, isä), ALL pages must use 3rd person.
+- If the story uses 1st person (minä), ALL pages must use 1st person.
+- NEVER switch perspective mid-story. The camera shot type (e.g. FIRST-PERSON POV) describes only the ILLUSTRATION angle — it must NOT change the grammatical person of the Finnish text.
+
 {shot_plan_instruction}
 
 **TITLE GUIDELINES:**
@@ -313,7 +319,7 @@ Pay extra attention to:
       "type": "cover",
       "text_fi": "Title of the story",
       "text_en": "Title of the story",
-      "image_description": "HERO POSTER SHOT: visual description of the cover framing and scene. INCLUDE FULL CHARACTER DETAILS."
+      "image_description": "HERO POSTER SHOT: a dynamic, mid-action scene that teases the story. Show characters DOING something (not standing still). The subject of the title (object, animal, place, etc.) MUST be prominently visible — if the title is 'The Blue Backpack', the blue backpack must be large and obvious. INCLUDE FULL CHARACTER DETAILS."
     }},
     {{
       "page_number": 2,

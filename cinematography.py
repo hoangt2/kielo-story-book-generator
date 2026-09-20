@@ -132,7 +132,17 @@ COVER_SHOT = {
     "name": "HERO POSTER SHOT",
     "scale": "wide",
     "tags": [],
-    "direction": "Camera at eye level or a little below, characters standing full-body and centred with the whole setting spread out behind them like a book cover. Keep the lower third calm and simple (ground, snow, water, floor).",
+    "direction": (
+        "A dynamic, eye-catching book-cover composition that immediately hints at the story's theme. "
+        "Show the main character(s) MID-ACTION — running, reaching, laughing, riding, cooking, "
+        "exploring — NOT standing still and facing the camera. "
+        "Use a cinematic angle (slight low angle, dynamic diagonal, or dramatic perspective) "
+        "and place the key story element (object, animal, vehicle, location) prominently in the scene. "
+        "IMPORTANT: Whatever the title refers to (an object, animal, place, activity) MUST be clearly and prominently visible in the cover — "
+        "it should be one of the first things the viewer notices. "
+        "The setting should be vivid and fill the background, making the reader curious about what happens next. "
+        "Keep the lower fifth of the image relatively clean for potential title overlay."
+    ),
 }
 
 SCALES = ("wide", "medium", "close", "detail")

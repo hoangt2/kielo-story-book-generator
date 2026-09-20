@@ -240,10 +240,12 @@ function pollStatus() {
 }
 
 function loadStory() {
+    const timestamp = new Date().getTime();
     fetch('/api/story')
         .then(response => response.json())
         .then(story => {
             const container = document.getElementById('storyContainer');
+            container.innerHTML = '';
             container.classList.remove('hidden');
             
             const downloadSection = document.getElementById('downloadSection');
@@ -255,8 +257,8 @@ function loadStory() {
                 const card = document.createElement('div');
                 card.className = 'story-card';
 
-                // Use the story card image (composited)
-                const imgPath = `/output/cards/story_card_${page.page_number}.png`;
+                // Cache-bust so the browser never shows stale images from a previous story
+                const imgPath = `/output/cards/story_card_${page.page_number}.png?t=${timestamp}`;
 
                 card.innerHTML = `
                     <img src="${imgPath}" alt="Page ${page.page_number}">
