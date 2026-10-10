@@ -142,7 +142,7 @@ def cmd_upload(a):
     data = {"locale": "fi", "audio_url": url(amid, "main.mp3"), "cefr_level": a.cefr, "format_type": "image-carousel",
             "thumbnail_url": images[a.thumb - 1], "carousel_images": images, "duration_seconds": 0,
             "cefr_level_source": "captions-v1", "transcription_status": "pending"}
-    cues = [{"end_time": (i + 1) * SECONDS, "start_time": i * SECONDS, "slide_index": i, "text_primary": p["text_fi"].strip()}
+    cues = [{"end_time": (i + 1) * SECONDS, "start_time": i * SECONDS, "slide_index": i, "text_primary": " ".join(p["text_fi"].split())}  # one line, like the existing captions
             for i, p in enumerate(pages)]
     slug = f"{eid[:8]}-{slugify(title)}"
 

@@ -237,7 +237,7 @@ def _draw_text_block_with_shadow(draw, text, font, start_y, color, canvas_width,
     return current_y
 
 
-def create_story_card(image_path, finnish_text, english_text, output_path, aspect_ratio=None):
+def create_story_card(image_path, main_text, english_text, output_path, aspect_ratio=None):
     """
     Composites an image and bilingual text into a story card.
     
@@ -252,12 +252,12 @@ def create_story_card(image_path, finnish_text, english_text, output_path, aspec
     CANVAS_HEIGHT = config["height"]
     
     if aspect_ratio == "9:16":
-        _create_fullbleed_card(image_path, finnish_text, english_text, output_path, CANVAS_WIDTH, CANVAS_HEIGHT)
+        _create_fullbleed_card(image_path, main_text, english_text, output_path, CANVAS_WIDTH, CANVAS_HEIGHT)
     else:
-        _create_split_card(image_path, finnish_text, english_text, output_path, CANVAS_WIDTH, CANVAS_HEIGHT)
+        _create_split_card(image_path, main_text, english_text, output_path, CANVAS_WIDTH, CANVAS_HEIGHT)
 
 
-def _create_fullbleed_card(image_path, finnish_text, english_text, output_path, canvas_width, canvas_height):
+def _create_fullbleed_card(image_path, main_text, english_text, output_path, canvas_width, canvas_height):
     """
     9:16 full-screen vertical card: image fills the entire canvas,
     text is overlaid on a dark gradient at the bottom.
@@ -320,21 +320,21 @@ def _create_fullbleed_card(image_path, finnish_text, english_text, output_path, 
     available_height = text_bottom_limit - text_start_y
     
     # Font sizing
-    finnish_max_height = available_height * 0.6
+    main_max_height = available_height * 0.6
     english_max_height = available_height * 0.35
     
     font_fi, actual_size_fi = _find_optimal_font_size(
-        draw, finnish_text, 64, max_text_width, finnish_max_height, FONT_CANDIDATES_BOLD
+        draw, main_text, 64, max_text_width, main_max_height, FONT_CANDIDATES_BOLD
     )
     font_en, actual_size_en = _find_optimal_font_size(
         draw, english_text, 44, max_text_width, english_max_height, FONT_CANDIDATES_REG
     )
     
-    print(f"Finnish font size: {actual_size_fi}px, English font size: {actual_size_en}px (fullbleed)")
+    print(f"Main font size: {actual_size_fi}px, English font size: {actual_size_en}px (fullbleed)")
     
-    # Draw Finnish text (white with shadow)
+    # Draw main text (white with shadow)
     current_y = _draw_text_block_with_shadow(
-        draw, finnish_text, font_fi, text_start_y, "#FFFFFF",
+        draw, main_text, font_fi, text_start_y, "#FFFFFF",
         canvas_width, max_text_width
     )
     
@@ -350,7 +350,7 @@ def _create_fullbleed_card(image_path, finnish_text, english_text, output_path, 
     print(f"Saved fullbleed story card to {output_path}")
 
 
-def _create_split_card(image_path, finnish_text, english_text, output_path, canvas_width, canvas_height):
+def _create_split_card(image_path, main_text, english_text, output_path, canvas_width, canvas_height):
     """
     Non-fullscreen layout: image at top, text below (used for 1:1, 4:3, 16:9, 3:4).
     """
@@ -396,21 +396,21 @@ def _create_split_card(image_path, finnish_text, english_text, output_path, canv
     text_bottom_limit = canvas_height - MARGIN
     available_height = text_bottom_limit - text_start_y
     
-    finnish_max_height = available_height * 0.6
+    main_max_height = available_height * 0.6
     english_max_height = available_height * 0.35
     
     font_fi, actual_size_fi = _find_optimal_font_size(
-        draw, finnish_text, 56, max_text_width, finnish_max_height, FONT_CANDIDATES_BOLD
+        draw, main_text, 56, max_text_width, main_max_height, FONT_CANDIDATES_BOLD
     )
     font_en, actual_size_en = _find_optimal_font_size(
         draw, english_text, 40, max_text_width, english_max_height, FONT_CANDIDATES_REG
     )
     
-    print(f"Finnish font size: {actual_size_fi}px, English font size: {actual_size_en}px (split)")
+    print(f"Main font size: {actual_size_fi}px, English font size: {actual_size_en}px (split)")
     
-    # Draw Finnish text
+    # Draw main text
     current_y = _draw_text_block(
-        draw, finnish_text, font_fi, text_start_y, TEXT_COLOR,
+        draw, main_text, font_fi, text_start_y, TEXT_COLOR,
         canvas_width, max_text_width
     )
     

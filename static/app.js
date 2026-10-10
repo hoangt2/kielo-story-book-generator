@@ -7,17 +7,28 @@ let currentPromptsOnly = false;
 const suggestionCache = {};
 let suggestionsOpen = false;
 
+function getSelectedLanguage() {
+    return document.getElementById('languageSelect').value;
+}
+
 function getSelectedLevel() {
     return document.getElementById('levelSelect').value;
+}
+
+// Ideas are written per language, so the cache is keyed by both.
+function suggestionKey(language, level) {
+    return `${language}:${level}`;
 }
 
 function fetchSuggestions(level, { refresh = false, cachedOnly = false } = {}) {
     // The model costs tokens, so it is only asked when ideas are actually
     // wanted: opening the panel on a level with none yet, or "New ideas".
     // Everything else reuses what has already been generated.
-    if (!refresh && suggestionCache[level]) return Promise.resolve(suggestionCache[level]);
+    const language = getSelectedLanguage();
+    const key = suggestionKey(language, level);
+    if (!refresh && suggestionCache[key]) return Promise.resolve(suggestionCache[key]);
 
-    let url = `/api/suggestions?level=${encodeURIComponent(level)}`;
+    let url = `/api/suggestions?lang=${encodeURIComponent(language)}&level=${encodeURIComponent(level)}`;
     if (refresh) url += '&refresh=1';
     if (cachedOnly) url += '&cached=1';
 
@@ -25,7 +36,7 @@ function fetchSuggestions(level, { refresh = false, cachedOnly = false } = {}) {
         .then(response => response.json())
         .then(data => {
             // Only remember real ideas — a curated stand-in must not stick.
-            if (data.source === 'ai') suggestionCache[level] = data;
+            if (data.source === 'ai') suggestionCache[key] = data;
             return data;
         });
 }
@@ -55,7 +66,7 @@ function buildSuggestionCard(suggestion) {
 }
 
 function paintSuggestions(level, data) {
-    if (!suggestionsOpen || getSelectedLevel() !== level) return false;
+    if (!suggestionsOpen || getSelectedLevel() !== level || getSelectedLanguage() !== data.language) return false;
 
     const list = document.getElementById('suggestionList');
     document.getElementById('suggestionHint').textContent = data.source === 'curated'
@@ -74,7 +85,8 @@ function renderSuggestions(options = {}) {
     const list = document.getElementById('suggestionList');
     const refreshBtn = document.getElementById('suggestionRefresh');
 
-    const willGenerate = !options.cachedOnly && (options.refresh || !suggestionCache[level]);
+    const key = suggestionKey(getSelectedLanguage(), level);
+    const willGenerate = !options.cachedOnly && (options.refresh || !suggestionCache[key]);
 
     if (willGenerate) {
         // Writing a batch takes a while. Fill the panel with the built-in ideas
@@ -86,7 +98,7 @@ function renderSuggestions(options = {}) {
 
         fetchSuggestions(level, { cachedOnly: true })
             .then(data => {
-                if (!suggestionCache[level] && refreshBtn.disabled) {
+                if (!suggestionCache[key] && refreshBtn.disabled) {
                     if (paintSuggestions(level, data)) {
                         hint.textContent = `${data.hint} Built-in ideas — writing fresh ones…`;
                     }
@@ -146,6 +158,11 @@ function onLevelChange() {
     if (suggestionsOpen) renderSuggestions({ cachedOnly: true });
 }
 
+function onLanguageChange() {
+    // Same rule as levels: switching only shows ideas already written for it.
+    if (suggestionsOpen) renderSuggestions({ cachedOnly: true });
+}
+
 function startGeneration() {
     if (isGenerating) return;
 
@@ -158,6 +175,7 @@ function startGeneration() {
     const themeSelect = document.getElementById('themeSelect');
     const selectedLevel = levelSelect.value;
     const selectedTheme = themeSelect.value;
+    const selectedLanguage = getSelectedLanguage();
 
     const customTopic = document.getElementById('customTopic').value;
     const customSetting = document.getElementById('customSetting').value;
@@ -179,6 +197,7 @@ function startGeneration() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+            language: selectedLanguage,
             level: selectedLevel,
             theme_category: selectedTheme,
             custom_topic: customTopic,
@@ -239,6 +258,12 @@ function pollStatus() {
     }, 1000);
 }
 
+// Story JSON stores its text under text_<language>; archives from before the
+// language option have no `language` field and are Finnish.
+function storyTextKey(story) {
+    return `text_${story.language || 'fi'}`;
+}
+
 function loadStory() {
     const timestamp = new Date().getTime();
     fetch('/api/story')
@@ -253,6 +278,7 @@ function loadStory() {
             document.getElementById('pdfDownload').classList.remove('hidden');
             document.getElementById('promptsDownload').classList.add('hidden');
 
+            const textKey = storyTextKey(story);
             story.pages.forEach(page => {
                 const card = document.createElement('div');
                 card.className = 'story-card';
@@ -263,7 +289,7 @@ function loadStory() {
                 card.innerHTML = `
                     <img src="${imgPath}" alt="Page ${page.page_number}">
                     <div class="story-card-content">
-                        <p class="fi-text">${page.text_fi}</p>
+                        <p class="fi-text">${page[textKey]}</p>
                         <p class="en-text">${page.text_en}</p>
                     </div>
                     <button class="regenerate-btn" onclick="regenerateImage(${page.page_number}, this)" title="Regenerate Illustration">🔄</button>
@@ -362,6 +388,7 @@ function loadPromptsOnlyView() {
             sceneHeader.innerHTML = `<h2>🖼️ Scene Prompts</h2>`;
             container.appendChild(sceneHeader);
 
+            const textKey = storyTextKey(story);
             story.pages.forEach(page => {
                 const card = document.createElement('div');
                 card.className = 'story-card prompts-only-card';
@@ -369,7 +396,7 @@ function loadPromptsOnlyView() {
                 card.innerHTML = `
                     <div class="story-card-content">
                         <div class="page-number">Page ${page.page_number}</div>
-                        <p class="fi-text">${page.text_fi}</p>
+                        <p class="fi-text">${page[textKey]}</p>
                         <p class="en-text">${page.text_en}</p>
                         <details class="prompt-details">
                             <summary>📝 Image Prompt</summary>
@@ -407,6 +434,7 @@ function archiveStory() {
 // Load existing story on startup if available
 window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('levelSelect').addEventListener('change', onLevelChange);
+    document.getElementById('languageSelect').addEventListener('change', onLanguageChange);
     onLevelChange();
 
     fetch('/api/story')

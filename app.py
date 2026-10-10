@@ -4,6 +4,7 @@ import os
 import json
 import time
 from story_generator import main as generate_story, get_current_theme
+from languages import DEFAULT_LANGUAGE, normalize_language
 
 app = Flask(__name__)
 
@@ -14,7 +15,7 @@ generation_state = {
     "logs": []
 }
 
-def run_generation(level="A1", theme_category=None, custom_topic=None, page_count=10, custom_setting=None, aspect_ratio=None, prompts_only=False):
+def run_generation(level="A1", theme_category=None, custom_topic=None, page_count=10, custom_setting=None, aspect_ratio=None, prompts_only=False, language=DEFAULT_LANGUAGE):
     global generation_state
     generation_state["is_generating"] = True
     generation_state["status"] = "Starting..."
@@ -28,7 +29,7 @@ def run_generation(level="A1", theme_category=None, custom_topic=None, page_coun
     try:
         # Clean up first? Maybe optional.
         # For now, just run generation
-        success = generate_story(status_callback=status_callback, level=level, theme_category=theme_category, custom_topic=custom_topic, page_count=page_count, custom_setting=custom_setting, aspect_ratio=aspect_ratio, prompts_only=prompts_only)
+        success = generate_story(status_callback=status_callback, level=level, theme_category=theme_category, custom_topic=custom_topic, page_count=page_count, custom_setting=custom_setting, aspect_ratio=aspect_ratio, prompts_only=prompts_only, language=language)
         
         # Check if generation failed
         if not success:
@@ -64,6 +65,7 @@ def suggest_topics():
     from topic_suggestions import get_suggestions, get_level_hint
 
     level = request.args.get("level", "A1")
+    language = normalize_language(request.args.get("lang", DEFAULT_LANGUAGE))
     refresh = request.args.get("refresh") == "1"      # always generate a new batch
     cached_only = request.args.get("cached") == "1"   # never call the model
     try:
@@ -73,10 +75,12 @@ def suggest_topics():
     count = max(3, min(10, count))
 
     suggestions, source = get_suggestions(
-        level, count=count, refresh=refresh, allow_generate=not cached_only)
+        level, count=count, refresh=refresh, allow_generate=not cached_only,
+        language=language)
     return jsonify({
         "level": level,
-        "hint": get_level_hint(level),
+        "language": language,
+        "hint": get_level_hint(level, language),
         "source": source,
         "suggestions": suggestions,
     })
@@ -95,12 +99,13 @@ def start_generation():
     custom_setting = data.get("custom_setting", None)
     aspect_ratio = data.get("aspect_ratio", None)
     prompts_only = data.get("prompts_only", False)
-    
+    language = normalize_language(data.get("language", DEFAULT_LANGUAGE))
+
     # Normalize theme_category (empty string or "random" = None)
     if theme_category in [None, "", "random"]:
         theme_category = None
-    
-    thread = threading.Thread(target=run_generation, args=(level, theme_category, custom_topic, page_count, custom_setting, aspect_ratio, prompts_only))
+
+    thread = threading.Thread(target=run_generation, args=(level, theme_category, custom_topic, page_count, custom_setting, aspect_ratio, prompts_only, language))
     thread.start()
     return jsonify({"message": "Generation started"})
 

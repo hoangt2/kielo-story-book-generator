@@ -1,7 +1,8 @@
-# Prompts for Finnish Story Generator
+# Prompts for the Story Book Generator (Finnish and Swedish)
 import random
 
 from cinematography import CAMERA_STYLE_GUIDE, build_shot_plan, format_shot_plan
+from languages import LANGUAGES, SV_LEVEL_CONSTRAINTS, SV_STORY_THEMES, normalize_language
 
 # Theme categories for UI selection
 THEME_CATEGORIES = {
@@ -89,21 +90,28 @@ def get_theme_categories():
     """Returns available theme categories for the UI dropdown."""
     return THEME_CATEGORIES
 
-def get_themes_by_category(category=None):
-    """Returns themes filtered by category. If None or 'random', returns all themes."""
-    if category is None or category == "random":
-        return STORY_THEMES
-    return [t for t in STORY_THEMES if t["category"] == category]
+THEMES_BY_LANGUAGE = {
+    "fi": STORY_THEMES,
+    "sv": SV_STORY_THEMES,
+}
 
-def select_theme(category=None, used_themes=None):
+def get_themes_by_category(category=None, language="fi"):
+    """Returns themes filtered by category. If None or 'random', returns all themes."""
+    themes = THEMES_BY_LANGUAGE[normalize_language(language)]
+    if category is None or category == "random":
+        return themes
+    return [t for t in themes if t["category"] == category]
+
+def select_theme(category=None, used_themes=None, language="fi"):
     """
     Selects a random theme from the specified category, avoiding recently used themes.
-    
+
     Args:
         category: Theme category (e.g., 'winter', 'summer') or None/'random' for any
         used_themes: List of recently used theme settings to avoid
+        language: Language code ('fi' or 'sv'), which picks the theme list
     """
-    available_themes = get_themes_by_category(category)
+    available_themes = get_themes_by_category(category, language)
     
     # Filter out recently used themes if provided
     if used_themes:
@@ -183,20 +191,27 @@ LEVEL_CONSTRAINTS = {
 }
 
 
-def get_story_prompt(level="A1", previous_stories=None, theme_category=None, used_themes=None, custom_topic=None, page_count=10, custom_setting=None, grammar_feedback=None):
+def get_story_prompt(level="A1", previous_stories=None, theme_category=None, used_themes=None, custom_topic=None, page_count=10, custom_setting=None, grammar_feedback=None, language="fi"):
     """
     Generate a story prompt based on the difficulty level, history, and theme.
-    
+
     Args:
         level: "A1", "A2", "B1", "B2", "C1", or "C2"
         previous_stories: List of dicts containing info about past stories.
         theme_category: Optional category to constrain theme selection
         used_themes: List of recently used themes to avoid
         grammar_feedback: Feedback from a previous failed grammar check to avoid the same mistakes
+        language: "fi" or "sv"
     """
-
-    
-    constraints = LEVEL_CONSTRAINTS.get(level, LEVEL_CONSTRAINTS["A1"])
+    language = normalize_language(language)
+    L = LANGUAGES[language]
+    tk = f"title_{language}"
+    xk = f"text_{language}"
+    # Swedish has its own constraints (no cases); Finnish keeps the originals.
+    if language == "sv":
+        constraints = SV_LEVEL_CONSTRAINTS.get(level, SV_LEVEL_CONSTRAINTS["A1"])
+    else:
+        constraints = LEVEL_CONSTRAINTS.get(level, LEVEL_CONSTRAINTS["A1"])
     
     # Build history context
     history_context = ""
@@ -216,12 +231,12 @@ The following stories have already been generated. DO NOT repeat these exact plo
 The user has requested a story about: **{custom_topic}**
 
 - **Topic:** {custom_topic}
-- **Season & Setting:** Choose an appropriate season and valid Finnish setting for this topic. {'(Use the user-provided setting below)' if custom_setting else '(Choose a diverse setting)'}
+- **Season & Setting:** Choose an appropriate season and valid {L['adjective']} setting for this topic. {'(Use the user-provided setting below)' if custom_setting else '(Choose a diverse setting)'}
 - **Mood:** Choose a mood that matches the topic.
 
 **CREATIVITY GUIDELINES:**
 - The story must center around the requested topic.
-- The story is about daily situations, not a fairy tale (unless the topic implies otherwise, but try to keep it grounded in reality/authentic Finnish culture).
+- The story is about daily situations, not a fairy tale (unless the topic implies otherwise, but try to keep it grounded in reality/authentic {L['adjective']} culture).
 - The story should be engaging and interesting.
 - Add some humor to the story when appropriate.
 - Create diverse characters: Different ages, backgrounds, professions, include foreigners/immigrants when fitting.
@@ -229,7 +244,7 @@ The user has requested a story about: **{custom_topic}**
 - Make the ending satisfying and memorable.
 """
     else:
-        theme = select_theme(category=theme_category, used_themes=used_themes)
+        theme = select_theme(category=theme_category, used_themes=used_themes, language=language)
         theme_instruction = f"""
 **MANDATORY THEME (You MUST follow this):**
 - **Season:** {theme['season']}
@@ -238,9 +253,9 @@ The user has requested a story about: **{custom_topic}**
 - **Mood/Tone:** {theme['mood']}
 
 **CREATIVITY GUIDELINES:**
-- DO NOT make stories about buying strawberries at a market/tori
+- {L['cliche']}
 - The story is about daily situations, not a fairy tale
-- The story should be engaging and interesting, incorporating authentic Finnish culture
+- The story should be engaging and interesting, incorporating authentic {L['adjective']} culture
 - Add some humor to the story when appropriate
 - Create diverse characters: Different ages, backgrounds, professions, include foreigners/immigrants when fitting
 - There can be animals in the story to make it more interesting
@@ -253,14 +268,14 @@ The user has requested a story about: **{custom_topic}**
     if custom_setting:
         setting_instruction += f"{custom_setting}. (You MUST use this specific setting!)"
     else:
-        setting_instruction += "A REAL, specific location in Finland (e.g., Helsinki, Tampere, Turku, Oulu, Rovaniemi, Porvoo, at home, at school, at work, etc.). AVOID repetitive famous tourist spots (like Helsinki Market Square) unless specifically requested. Use diverse settings: libraries, parks, suburbs, small towns, nature trails, etc."
+        setting_instruction += "A REAL, specific location in {L['country']} (e.g., {L['location_examples']}, at home, at school, at work, etc.). AVOID repetitive famous tourist spots (like {L['tourist_spot']}) unless specifically requested. Use diverse settings: libraries, parks, suburbs, small towns, nature trails, etc."
 
     # One camera framing per page, so the illustrations do not all end up as the
     # same straight-on mid shot (see cinematography.py).
     shot_plan_instruction = format_shot_plan(build_shot_plan(page_count))
 
     return f"""
-You are a Finnish language learning content creator. Your goal is to generate an engaging and UNIQUE story for {level} level learners.
+You are a {L['adjective']} language learning content creator. Your goal is to generate an engaging and UNIQUE story for {level} level learners.
 
 {history_context}
 
@@ -276,9 +291,7 @@ A previous version of this story was rejected for the following grammar issues. 
 {grammar_feedback}
 
 Pay extra attention to:
-- Correct Finnish case usage (partitive, accusative, etc.)
-- Natural Finnish word order and phrasing (avoid direct translations from English)
-- Proper Finnish name constructions (e.g., use "Anni-tyttö" not "tyttö Anni")
+{L["grammar_reminders"]}
 ''' if grammar_feedback else ''}
 
 **CRITICAL INSTRUCTION: VISUAL CONSISTENCY**
@@ -290,9 +303,9 @@ Pay extra attention to:
 
 **CRITICAL INSTRUCTION: NARRATIVE PERSPECTIVE CONSISTENCY**
 - Choose ONE narrative perspective for the entire story and keep it consistent on EVERY page.
-- If the story uses 3rd person (hän, Samu, isä), ALL pages must use 3rd person.
-- If the story uses 1st person (minä), ALL pages must use 1st person.
-- NEVER switch perspective mid-story. The camera shot type (e.g. FIRST-PERSON POV) describes only the ILLUSTRATION angle — it must NOT change the grammatical person of the Finnish text.
+- If the story uses 3rd person ({L['perspective_3rd']}), ALL pages must use 3rd person.
+- If the story uses 1st person ({L['perspective_1st']}), ALL pages must use 1st person.
+- NEVER switch perspective mid-story. The camera shot type (e.g. FIRST-PERSON POV) describes only the ILLUSTRATION angle — it must NOT change the grammatical person of the {L['adjective']} text.
 
 {shot_plan_instruction}
 
@@ -300,12 +313,12 @@ Pay extra attention to:
 - Do NOT use "[Activity] in [Place]" format (e.g., avoid "Ice Cream Summer in Tampere", "Swimming in Helsinki").
 - Do NOT use overly dramatic or mysterious titles (e.g., avoid "The Sweet Mystery", "The Secret Recipe", "The Hidden Truth").
 - Instead, use NATURAL, straightforward titles that describe what the story is about.
-- Good examples: "Oliverin jäätelökioski" / "Oliver's Ice Cream Kiosk", "Uusi naapuri" / "The New Neighbor", "Pikon ensimmäinen talvi" / "Piko's First Winter", "Saunapäivä" / "Sauna Day".
+- Good examples: {L['title_examples']}.
 - The title should feel natural and fitting — like the name of a short story, not a thriller or a fairy tale.
 
 **JSON Structure:**
 {{
-  "title_fi": "Natural Finnish Title",
+  "{tk}": "Natural {L['adjective']} Title",
   "title_en": "Natural English Title",
   "characters": [
     {{
@@ -317,49 +330,49 @@ Pay extra attention to:
     {{
       "page_number": 1,
       "type": "cover",
-      "text_fi": "Title of the story",
+      "{xk}": "Title of the story",
       "text_en": "Title of the story",
       "image_description": "HERO POSTER SHOT: a dynamic, mid-action scene that teases the story. Show characters DOING something (not standing still). The subject of the title (object, animal, place, etc.) MUST be prominently visible — if the title is 'The Blue Backpack', the blue backpack must be large and obvious. INCLUDE FULL CHARACTER DETAILS."
     }},
     {{
       "page_number": 2,
       "type": "story",
-      "text_fi": "Finnish text...",
+      "{xk}": "{L['adjective']} text...",
       "text_en": "English translation...",
       "image_description": "<THIS PAGE'S ASSIGNED SHOT NAME>: visual description written so the camera angle, height and distance are unmistakable. REMEMBER TO DESCRIBE CHARACTERS FULLY."
     }},
     {{
       "page_number": 3,
       "type": "story",
-      "text_fi": "Finnish text...",
+      "{xk}": "{L['adjective']} text...",
       "text_en": "English translation...",
       "image_description": "<THIS PAGE'S ASSIGNED SHOT NAME>: visual description..."
     }},
     {{
       "page_number": 4,
       "type": "story",
-      "text_fi": "Finnish text...",
+      "{xk}": "{L['adjective']} text...",
       "text_en": "English translation...",
       "image_description": "<THIS PAGE'S ASSIGNED SHOT NAME>: visual description..."
     }},
     {{
       "page_number": 5,
       "type": "story",
-      "text_fi": "Finnish text...",
+      "{xk}": "{L['adjective']} text...",
       "text_en": "English translation...",
       "image_description": "<THIS PAGE'S ASSIGNED SHOT NAME>: visual description..."
     }},
     {{
       "page_number": 6,
       "type": "story",
-      "text_fi": "Finnish text...",
+      "{xk}": "{L['adjective']} text...",
       "text_en": "English translation...",
       "image_description": "<THIS PAGE'S ASSIGNED SHOT NAME>: visual description..."
     }},
     {{
       "page_number": 7,
       "type": "story",
-      "text_fi": "Finnish text...",
+      "{xk}": "{L['adjective']} text...",
       "text_en": "English translation...",
       "image_description": "<THIS PAGE'S ASSIGNED SHOT NAME>: visual description..."
     }}

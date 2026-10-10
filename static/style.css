@@ -50,17 +50,20 @@ p {
     flex-wrap: wrap;
 }
 
+.language-selector,
 .level-selector {
     display: flex;
     align-items: center;
     gap: 0.5rem;
 }
 
+.language-selector label,
 .level-selector label {
     color: var(--text-secondary);
     font-size: 0.9rem;
 }
 
+.language-selector select,
 .level-selector select {
     background-color: var(--card-bg);
     color: var(--text-primary);
@@ -72,6 +75,7 @@ p {
     cursor: pointer;
 }
 
+.language-selector select:focus,
 .level-selector select:focus {
     outline: none;
     border-color: var(--accent);

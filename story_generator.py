@@ -23,16 +23,18 @@ genai.configure(api_key=GOOGLE_API_KEY)
 from grammar_checker import check_grammar
 from history_manager import load_history, save_to_history, get_used_themes
 from cleanup import cleanup
+from languages import DEFAULT_LANGUAGE, LANGUAGES, normalize_language, text_key, title_key
 
-def generate_story_concept(level="A1", theme_category=None, custom_topic=None, page_count=10, custom_setting=None, grammar_feedback=None):
+def generate_story_concept(level="A1", theme_category=None, custom_topic=None, page_count=10, custom_setting=None, grammar_feedback=None, language=DEFAULT_LANGUAGE):
     """Generates the story structure using Gemini Pro."""
     global _current_theme
-    
+    language = normalize_language(language)
+
     theme_msg = theme_category or 'random'
     if custom_topic:
         theme_msg = f"Custom: {custom_topic}"
-        
-    print(f"Generating story concept for {level} level (theme: {theme_msg}, pages: {page_count}, setting: {custom_setting})...")
+
+    print(f"Generating {LANGUAGES[language]['name']} story concept for {level} level (theme: {theme_msg}, pages: {page_count}, setting: {custom_setting})...")
     
     # Load history and used themes
     history = load_history()
@@ -54,28 +56,31 @@ def generate_story_concept(level="A1", theme_category=None, custom_topic=None, p
             "mood": "engaging"
         }
     else:
-        _current_theme = select_theme(category=theme_category, used_themes=used_themes)
-        
+        _current_theme = select_theme(category=theme_category, used_themes=used_themes, language=language)
+
     print(f"Selected theme: {_current_theme.get('setting', 'Custom')} - {_current_theme.get('activity', custom_topic)}")
-    
+
     # Pass history and theme info to prompt
     prompt = get_story_prompt(
-        level, 
-        previous_stories=history, 
-        theme_category=theme_category, 
+        level,
+        previous_stories=history,
+        theme_category=theme_category,
         used_themes=used_themes,
         custom_topic=custom_topic,
         page_count=page_count,
         custom_setting=custom_setting,
-        grammar_feedback=grammar_feedback
+        grammar_feedback=grammar_feedback,
+        language=language
     )
-    
+
     response = model.generate_content(prompt)
-    
+
     try:
         # Clean up markdown code blocks if present
         text = response.text.replace("```json", "").replace("```", "").strip()
         story_data = json.loads(text)
+        # Record the language so later steps (cards, prompts export, regenerate) pick the right text
+        story_data["language"] = language
         return story_data
     except json.JSONDecodeError:
         print("Error: Failed to parse JSON from Gemini response.")
@@ -96,7 +101,7 @@ ASPECT_RATIOS = {
 }
 DEFAULT_ASPECT_RATIO = "9:16"
 
-def main(status_callback=None, level="A1", max_retries=5, theme_category=None, custom_topic=None, page_count=10, custom_setting=None, aspect_ratio=None, prompts_only=False):
+def main(status_callback=None, level="A1", max_retries=5, theme_category=None, custom_topic=None, page_count=10, custom_setting=None, aspect_ratio=None, prompts_only=False, language=DEFAULT_LANGUAGE):
     def log(message):
         print(message)
         if status_callback:
@@ -105,8 +110,9 @@ def main(status_callback=None, level="A1", max_retries=5, theme_category=None, c
     if aspect_ratio is None:
         aspect_ratio = DEFAULT_ASPECT_RATIO
 
-    parser = argparse.ArgumentParser(description="Finnish Story Generator")
+    parser = argparse.ArgumentParser(description="Story Book Generator (Finnish or Swedish)")
     parser.add_argument("--output_dir", default="output", help="Directory to save results")
+    parser.add_argument("--language", default=language, choices=list(LANGUAGES.keys()), help="Language of the story text (default: fi)")
     parser.add_argument("--level", default=level, choices=["A1", "A2", "B1", "B2", "C1", "C2"], help="CEFR language level (default: A1)")
     parser.add_argument("--max_retries", type=int, default=max_retries, help="Maximum number of retries for grammar check")
     parser.add_argument("--theme", default=theme_category, help="Theme category (winter, spring, summer, autumn, everyday, special)")
@@ -130,8 +136,11 @@ def main(status_callback=None, level="A1", max_retries=5, theme_category=None, c
             pages=page_count,
             setting=custom_setting,
             aspect_ratio=aspect_ratio,
-            prompts_only=prompts_only
+            prompts_only=prompts_only,
+            language=language,
         )
+
+    args.language = normalize_language(args.language)
 
     # Clean up old output before starting
     log("Cleaning up previous output...")
@@ -143,21 +152,21 @@ def main(status_callback=None, level="A1", max_retries=5, theme_category=None, c
         theme_label = args.theme or "random"
         if args.topic:
             theme_label = f"Custom: {args.topic}"
-            
-        log(f"Generating story concept for {args.level} level, theme: {theme_label}, pages: {args.pages}, setting: {args.setting} (Attempt {attempt}/{args.max_retries})...")
-        
-        story = generate_story_concept(level=args.level, theme_category=args.theme, custom_topic=args.topic, page_count=args.pages, custom_setting=args.setting, grammar_feedback=grammar_feedback)
+
+        log(f"Generating {LANGUAGES[args.language]['name']} story concept for {args.level} level, theme: {theme_label}, pages: {args.pages}, setting: {args.setting} (Attempt {attempt}/{args.max_retries})...")
+
+        story = generate_story_concept(level=args.level, theme_category=args.theme, custom_topic=args.topic, page_count=args.pages, custom_setting=args.setting, grammar_feedback=grammar_feedback, language=args.language)
         if not story:
             log("Failed to generate story concept. Retrying...")
             continue
-            
+
         # 2. Verify Grammar
         log("Verifying grammar...")
-        is_valid, feedback = check_grammar(story)
-        
+        is_valid, feedback = check_grammar(story, language=args.language)
+
         if is_valid:
             log("Grammar check passed!")
-            
+
             if args.prompts_only:
                 export_prompts(story, args.output_dir, status_callback)
             else:
@@ -280,7 +289,8 @@ def export_prompts(story, output_dir="output", status_callback=None):
     for d in dirs.values():
         os.makedirs(d, exist_ok=True)
 
-    log(f"Exporting prompts for: {story.get('title_fi')} / {story.get('title_en')}")
+    lang = normalize_language(story.get("language"))
+    log(f"Exporting prompts for: {story.get(title_key(lang))} / {story.get('title_en')}")
 
     # Save story JSON for reference
     with open(os.path.join(dirs["data"], "story.json"), "w", encoding="utf-8") as f:
@@ -288,7 +298,7 @@ def export_prompts(story, output_dir="output", status_callback=None):
 
     # Build prompts document
     lines = []
-    lines.append(f"# Image Prompts for: {story.get('title_fi')} / {story.get('title_en')}")
+    lines.append(f"# Image Prompts for: {story.get(title_key(lang))} / {story.get('title_en')}")
     lines.append(f"# Generated for manual image creation")
     lines.append("")
 
@@ -331,12 +341,12 @@ def export_prompts(story, output_dir="output", status_callback=None):
     for page in story.get("pages", []):
         page_num = page.get("page_number")
         page_type = page.get("type", "story")
-        text_fi = page.get("text_fi", "")
+        text_target = page.get(text_key(lang), "")
         text_en = page.get("text_en", "")
         image_desc = page.get("image_description", "")
 
         lines.append(f"--- Page {page_num} ({page_type}) ---")
-        lines.append(f"Finnish: {text_fi}")
+        lines.append(f"{LANGUAGES[lang]['name']}: {text_target}")
         lines.append(f"English: {text_en}")
         lines.append(f"")
         lines.append(f"Image prompt:")
@@ -376,7 +386,8 @@ def process_story(story, output_dir="output", status_callback=None, aspect_ratio
     for d in dirs.values():
         os.makedirs(d, exist_ok=True)
 
-    print(f"Story Title: {story.get('title_fi')} / {story.get('title_en')}")
+    lang = normalize_language(story.get("language"))
+    print(f"Story Title: {story.get(title_key(lang))} / {story.get('title_en')}")
     
     # Save JSON for reference
     with open(os.path.join(dirs["data"], "story.json"), "w", encoding="utf-8") as f:
@@ -428,13 +439,13 @@ def process_story(story, output_dir="output", status_callback=None, aspect_ratio
         if success:
             # Composite
             create_story_card(
-                image_path, 
-                page.get("text_fi"), 
-                page.get("text_en"), 
+                image_path,
+                page.get(text_key(lang)),
+                page.get("text_en"),
                 final_path,
                 aspect_ratio=aspect_ratio
             )
-        
+
         # Sleep to avoid rate limits
         time.sleep(2)
 
@@ -462,6 +473,8 @@ def regenerate_page_image(page_number, output_dir="output", aspect_ratio=None):
         with open(data_path, "r", encoding="utf-8") as f:
             story = json.load(f)
             
+        lang = normalize_language(story.get("language"))
+
         # Find the page
         page = next((p for p in story.get("pages", []) if p.get("page_number") == page_number), None)
         if not page:
@@ -502,9 +515,9 @@ def regenerate_page_image(page_number, output_dir="output", aspect_ratio=None):
         if success:
             # Composite
             create_story_card(
-                image_path, 
-                page.get("text_fi"), 
-                page.get("text_en"), 
+                image_path,
+                page.get(text_key(lang)),
+                page.get("text_en"),
                 final_path,
                 aspect_ratio=aspect_ratio
             )

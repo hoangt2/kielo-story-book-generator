@@ -277,7 +277,7 @@ words carry the story, the camera carries the mood.
 Rules:
 1. Every `image_description` MUST begin with its assigned shot name, followed by a colon.
 2. After the shot name, describe the scene so that the assigned camera position, height and distance are unmistakable. Write it as what the picture shows, not as film jargon.
-3. The camera changes; the story does not. The action in the picture must still match that page's Finnish text.
+3. The camera changes; the story does not. The action in the picture must still match that page's text.
 4. Still repeat the FULL visual description of every character visible in the frame, exactly as required above — a close-up needs the same hair, clothes and colours as a wide shot.
 5. On a FIRST-PERSON POV page, the viewpoint character's face must NOT appear; describe what they see (their own hands may enter the bottom of the frame).
 6. On pages framed with no faces (top-down, extreme close-up detail), describe the hands, objects and surroundings in rich detail instead.

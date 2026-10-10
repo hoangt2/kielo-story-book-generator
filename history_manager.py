@@ -1,6 +1,8 @@
 import os
 import json
 
+from languages import normalize_language, title_key
+
 HISTORY_FILE = "history.json"
 
 def load_history(limit=5):
@@ -56,9 +58,11 @@ def save_to_history(story_data, theme=None):
         except (json.JSONDecodeError, IOError):
             history = []
     
-    # Extract relevant info
+    # Extract relevant info (title in the story's own language, plus English)
+    language = normalize_language(story_data.get("language"))
     entry = {
-        "title_fi": story_data.get("title_fi"),
+        "language": language,
+        title_key(language): story_data.get(title_key(language)),
         "title_en": story_data.get("title_en"),
         "characters": [c.get("name") for c in story_data.get("characters", [])],
     }

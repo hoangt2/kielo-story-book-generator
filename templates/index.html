@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finnish Story Generator</title>
+    <title>Story Book Generator</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
 </head>
@@ -12,12 +12,19 @@
 <body>
     <div class="container">
         <header>
-            <h1>Finnish Story Generator</h1>
-            <p>Create beautiful A1/A2 language learning stories with AI.</p>
+            <h1>Story Book Generator</h1>
+            <p>Create beautiful language learning stories with AI, in Finnish or Swedish.</p>
         </header>
 
         <main>
             <div class="controls">
+                <div class="language-selector">
+                    <label for="languageSelect">Language:</label>
+                    <select id="languageSelect">
+                        <option value="fi" selected>🇫🇮 Finnish (Suomi)</option>
+                        <option value="sv">🇸🇪 Swedish (Svenska)</option>
+                    </select>
+                </div>
                 <div class="level-selector">
                     <label for="levelSelect">Difficulty Level:</label>
                     <select id="levelSelect">

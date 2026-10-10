@@ -17,7 +17,8 @@ import threading
 import google.generativeai as genai
 from dotenv import load_dotenv
 
-from prompts import LEVEL_CONSTRAINTS
+from languages import LANGUAGES, SV_LEVEL_HINTS, SV_TOPIC_SUGGESTIONS, normalize_language
+from prompts import LEVEL_CONSTRAINTS, SV_LEVEL_CONSTRAINTS
 
 load_dotenv()
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
@@ -339,33 +340,50 @@ TOPIC_SUGGESTIONS = {
 DEFAULT_LEVEL = "A1"
 
 
-def get_topic_suggestions(level=None):
+TOPIC_SUGGESTIONS_BY_LANGUAGE = {
+    "fi": TOPIC_SUGGESTIONS,
+    "sv": SV_TOPIC_SUGGESTIONS,
+}
+
+LEVEL_HINTS_BY_LANGUAGE = {
+    "fi": LEVEL_HINTS,
+    "sv": SV_LEVEL_HINTS,
+}
+
+
+def _language(language):
+    return normalize_language(language)
+
+
+def get_topic_suggestions(level=None, language="fi"):
     """Returns the curated suggestion list for a CEFR level (falls back to A1)."""
-    if level not in TOPIC_SUGGESTIONS:
+    curated = TOPIC_SUGGESTIONS_BY_LANGUAGE[_language(language)]
+    if level not in curated:
         level = DEFAULT_LEVEL
-    return TOPIC_SUGGESTIONS[level]
+    return curated[level]
 
 
-def get_level_hint(level=None):
+def get_level_hint(level=None, language="fi"):
     """Returns the short explanation of what makes a good topic at this level."""
-    if level not in LEVEL_HINTS:
+    hints = LEVEL_HINTS_BY_LANGUAGE[_language(language)]
+    if level not in hints:
         level = DEFAULT_LEVEL
-    return LEVEL_HINTS[level]
+    return hints[level]
 
 
-def get_random_topic_suggestion(level=None):
+def get_random_topic_suggestion(level=None, language="fi"):
     """Returns one random suggestion for the given level."""
-    return random.choice(get_topic_suggestions(level))
+    return random.choice(get_topic_suggestions(level, language))
 
 
 # --- AI-generated suggestions -----------------------------------------------
 
-# Ideas already served this session, per level, so a refresh brings new ones
-# instead of circling the same handful.
+# Ideas already served this session, per (language, level), so a refresh brings
+# new ones instead of circling the same handful.
 _recent_topics = {}
 _RECENT_MEMORY = 24
 
-SUGGESTION_PROMPT = """You invent story topics for an illustrated Finnish language-learning book generator.
+SUGGESTION_PROMPT = """You invent story topics for an illustrated {name} language-learning book generator.
 
 Propose {count} DIFFERENT story topics suitable for a {level} learner.
 
@@ -378,8 +396,7 @@ single sentence pattern; at higher levels it means the topic needs opinions, con
 or nuance to be told at all.
 
 Rules:
-- Set them in Finland, or in ordinary life a person in Finland would recognise. Use real
-  Finnish places, seasons and culture (mökki, sauna, ruska, vappu, talkoot, kaupat…).
+- {culture_rule}
 - Everyday human situations, not fairy tales, not mysteries, not adventures with treasure.
 - Each topic is ONE sentence, written in English, concrete enough to illustrate.
 - Vary them: different seasons, ages, indoor/outdoor, alone/with others, human/animal.
@@ -442,17 +459,18 @@ def _recent_story_topics():
         return []
 
 
-def generate_topic_suggestions(level=None, count=6, avoid=None):
+def generate_topic_suggestions(level=None, count=6, avoid=None, language="fi"):
     """
     Asks the model for fresh topic ideas for a level.
 
     Returns [] on any failure — callers fall back to the curated list rather
     than showing an empty panel.
     """
-    if level not in TOPIC_SUGGESTIONS:
+    language = _language(language)
+    if level not in TOPIC_SUGGESTIONS_BY_LANGUAGE[language]:
         level = DEFAULT_LEVEL
 
-    seen = list(avoid or []) + _recent_topics.get(level, []) + _recent_story_topics()
+    seen = list(avoid or []) + _recent_topics.get((language, level), []) + _recent_story_topics()
     avoid_clause = ""
     if seen:
         listed = "\n".join(f"- {topic}" for topic in seen[-_RECENT_MEMORY:])
@@ -461,11 +479,14 @@ def generate_topic_suggestions(level=None, count=6, avoid=None):
             f"{listed}\n\n"
         )
 
+    constraints = SV_LEVEL_CONSTRAINTS if language == "sv" else LEVEL_CONSTRAINTS
     low, high = _page_bounds(level)
     prompt = SUGGESTION_PROMPT.format(
+        name=LANGUAGES[language]["adjective"],
+        culture_rule=LANGUAGES[language]["culture_rule"],
         count=count,
         level=level,
-        constraints=LEVEL_CONSTRAINTS.get(level, LEVEL_CONSTRAINTS[DEFAULT_LEVEL]).strip(),
+        constraints=constraints.get(level, constraints[DEFAULT_LEVEL]).strip(),
         min_pages=low,
         max_pages=high,
         avoid_clause=avoid_clause,
@@ -487,7 +508,7 @@ def generate_topic_suggestions(level=None, count=6, avoid=None):
     if not suggestions:
         return []
 
-    remembered = _recent_topics.setdefault(level, [])
+    remembered = _recent_topics.setdefault((language, level), [])
     remembered.extend(s["topic"] for s in suggestions)
     del remembered[:-_RECENT_MEMORY]
 
@@ -501,13 +522,13 @@ _cache = {}
 _cache_lock = threading.Lock()
 
 
-def _curated_sample(level, count):
-    curated = list(get_topic_suggestions(level))
+def _curated_sample(level, count, language="fi"):
+    curated = list(get_topic_suggestions(level, language))
     random.shuffle(curated)
     return curated[:count]
 
 
-def get_suggestions(level=None, count=6, refresh=False, allow_generate=True):
+def get_suggestions(level=None, count=6, refresh=False, allow_generate=True, language="fi"):
     """
     Returns suggestions for a level plus where they came from ("ai"/"curated").
 
@@ -515,22 +536,24 @@ def get_suggestions(level=None, count=6, refresh=False, allow_generate=True):
     to: `refresh` always regenerates, and a cold level generates once unless
     `allow_generate` is False, in which case the curated list stands in.
     """
-    if level not in TOPIC_SUGGESTIONS:
+    language = _language(language)
+    if level not in TOPIC_SUGGESTIONS_BY_LANGUAGE[language]:
         level = DEFAULT_LEVEL
+    key = (language, level)
 
     if not refresh:
         with _cache_lock:
-            cached = _cache.get(level)
+            cached = _cache.get(key)
         if cached:
             return cached[:count], "ai"
 
     if not allow_generate:
-        return _curated_sample(level, count), "curated"
+        return _curated_sample(level, count, language), "curated"
 
-    generated = generate_topic_suggestions(level, count=count)
+    generated = generate_topic_suggestions(level, count=count, language=language)
     if generated:
         with _cache_lock:
-            _cache[level] = generated
+            _cache[key] = generated
         return generated, "ai"
 
-    return _curated_sample(level, count), "curated"
+    return _curated_sample(level, count, language), "curated"

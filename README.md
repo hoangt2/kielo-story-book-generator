@@ -1,6 +1,6 @@
-# Finnish Story Book Generator
+# Story Book Generator (Finnish & Swedish)
 
-An AI-powered tool that generates illustrated Finnish language learning stories with adjustable difficulty levels.
+An AI-powered tool that generates illustrated language learning stories in Finnish or Swedish, with adjustable difficulty levels.
 
 ## Features
 
@@ -98,6 +98,13 @@ output/
 │   └── story.json
 └── story.pdf         # Final compiled PDF
 ```
+
+## Languages
+
+Pick **Finnish** or **Swedish** in the web UI (or pass `--language fi|sv` on the command line). Finnish is the default.
+
+- Stories, CEFR constraints, themes, topic ideas and the grammar check follow the chosen language (`languages.py`, `prompts.py`, `topic_suggestions.py`, `grammar_checker.py`).
+- Story JSON stores text as `text_fi` / `text_sv` (and `title_fi` / `title_sv`), with a top-level `language` field. Older Finnish archives without that field still load as Finnish.
 
 ## Language Levels
 
