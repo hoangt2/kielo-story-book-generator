@@ -142,7 +142,9 @@ def archive_story():
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         
         archive_name = f"{timestamp}_{safe_title}"
-        archive_path = os.path.join("archives", archive_name)
+        # Stories are filed by language: archives/fi/... or archives/sv/...
+        language = normalize_language(data.get("language"))
+        archive_path = os.path.join("archives", language, archive_name)
         
         # Create archive directory structure
         os.makedirs(os.path.join(archive_path, "data"), exist_ok=True)

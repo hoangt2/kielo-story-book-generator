@@ -18,6 +18,10 @@ import argparse, base64, glob, hashlib, json, os, re, subprocess, sys, unicodeda
 PROJECT = "kielo-backend-prod"
 SECRET = "DATABASE_URL"
 SCHEMA = "cms_fi"
+LANGS = {  # per content locale: DB schema, brand on existing carousels/videos of that locale, story.json keys
+    "fi": {"schema": "cms_fi", "brand": "d20a9961-6764-40e7-829e-291953274d93"},
+    "sv": {"schema": "cms_sv", "brand": "7943795e-307b-4cfd-a881-d0ced7bfdf90"},
+}
 OUT_BUCKET = "kielo-media-processor-kielo-backend-prod"
 UPLOAD_BUCKET = "kielo-media-uploads-kielo-backend-prod"
 PUBLIC = f"https://storage.googleapis.com/{OUT_BUCKET}"
@@ -48,14 +52,14 @@ def slugify(s):
     return re.sub(r"[^a-z0-9]+", "-", s).strip("-")
 
 
-def existing_titles(cur):
-    cur.execute(f"select title from {SCHEMA}.content_versions where data->>'format_type'='image-carousel' and is_latest")
+def existing_titles(cur, schema=SCHEMA):
+    cur.execute(f"select title from {schema}.content_versions where data->>'format_type'='image-carousel' and is_latest")
     return {r[0] for r in cur.fetchall()}
 
 
 def cmd_status(a):
     have = existing_titles(connect().cursor())
-    for d in sorted(glob.glob(os.path.join(REPO, "archives", "*", "data", "story.json"))):
+    for d in sorted(glob.glob(os.path.join(REPO, "archives", "fi", "*", "data", "story.json"))):
         s = json.load(open(d)); sd = os.path.dirname(os.path.dirname(d))
         music = "music" if os.path.exists(os.path.join(sd, "audio", "background_music.mp3")) else "-"
         print(f"{'UPLOADED' if s['title_fi'] in have else 'new     '}  {len(s['pages'])}p  {music:<5}  "
@@ -118,11 +122,12 @@ def cmd_upload(a):
         sys.exit(f"missing images: {missing}")
     if not 1 <= a.thumb <= len(imgs):
         sys.exit(f"--thumb must be 1..{len(imgs)}")
-    title, desc = story["title_fi"], story["title_en"]
+    lang, schema, brand = a.lang, LANGS[a.lang]["schema"], LANGS[a.lang]["brand"]
+    title, desc = story[f"title_{lang}"], story["title_en"]
 
     conn = connect(readonly=not a.yes); cur = conn.cursor()
-    if title in existing_titles(cur):
-        sys.exit(f"an image carousel titled {title!r} already exists in {SCHEMA}")
+    if title in existing_titles(cur, schema):
+        sys.exit(f"an image carousel titled {title!r} already exists in {schema}")
     hashes = [sha256(p) for p in imgs] + [sha256(music)]
     cur.execute("select hash_value, media_id from public.media_hashes where hash_type='sha256' and hash_value = any(%s)", (hashes,))
     dup = cur.fetchall()
@@ -139,10 +144,10 @@ def cmd_upload(a):
     url = lambda m, f: f"{PUBLIC}/{prefix(m)}/{f}"
 
     images = [url(x["mid"], "main.webp") for x in assets]
-    data = {"locale": "fi", "audio_url": url(amid, "main.mp3"), "cefr_level": a.cefr, "format_type": "image-carousel",
+    data = {"locale": lang, "audio_url": url(amid, "main.mp3"), "cefr_level": a.cefr, "format_type": "image-carousel",
             "thumbnail_url": images[a.thumb - 1], "carousel_images": images, "duration_seconds": 0,
             "cefr_level_source": "captions-v1", "transcription_status": "pending"}
-    cues = [{"end_time": (i + 1) * SECONDS, "start_time": i * SECONDS, "slide_index": i, "text_primary": " ".join(p["text_fi"].split())}  # one line, like the existing captions
+    cues = [{"end_time": (i + 1) * SECONDS, "start_time": i * SECONDS, "slide_index": i, "text_primary": " ".join(p[f"text_{lang}"].split())}  # one line, like the existing captions
             for i, p in enumerate(pages)]
     slug = f"{eid[:8]}-{slugify(title)}"
 
@@ -158,7 +163,7 @@ def cmd_upload(a):
 
     os.makedirs(os.path.join(STATE, "rollback"), exist_ok=True)
     rec = os.path.join(STATE, "rollback", f"{eid[:8]}-{slugify(title)}.json")
-    json.dump({"title": title, "entry_id": eid, "version_id": vid, "media_ids": [x["mid"] for x in assets] + [amid],
+    json.dump({"title": title, "schema": schema, "entry_id": eid, "version_id": vid, "media_ids": [x["mid"] for x in assets] + [amid],
                "gcs_prefix": f"gs://{OUT_BUCKET}/kielotv/{eid}/"}, open(rec, "w"), indent=1, ensure_ascii=False)
     for x in assets + [audio]:
         for f, ct in x["files"].items():
@@ -167,12 +172,12 @@ def cmd_upload(a):
     print("GCS upload done")
 
     from psycopg2.extras import Json
-    cur.execute(f"""insert into {SCHEMA}.content_entries (id, content_type, content_source, category, external_id, metadata, slug,
+    cur.execute(f"""insert into {schema}.content_entries (id, content_type, content_source, category, external_id, metadata, slug,
         title, description, status, published_at, brand_id) values (%s,'video','kielotv_videos','',%s,'{{}}',%s,%s,%s,'published',now(),%s)""",
-                (eid, eid, slug, title, desc, BRAND_ID))
-    cur.execute(f"""insert into {SCHEMA}.content_versions (id, content_entry_id, version_number, title, description, data, status,
+                (eid, eid, slug, title, desc, brand))
+    cur.execute(f"""insert into {schema}.content_versions (id, content_entry_id, version_number, title, description, data, status,
         is_latest, source_locale, translation_status, enrichment_status, processing_status)
-        values (%s,%s,1,%s,%s,%s,'published',true,'fi','{{}}','pending','pending')""", (vid, eid, title, desc, Json(data)))
+        values (%s,%s,1,%s,%s,%s,'published',true,%s,'{{}}','pending','pending')""", (vid, eid, title, desc, Json(data), lang))
     for x in assets + [audio]:
         cur.execute("""insert into media.media_assets (media_id, uploader_user_id, processing_status, original_storage_path, content_type,
             size_bytes, variants, related_entity_type, related_entity_id, original_filename, original_storage_bucket, original_mime_type,
@@ -184,9 +189,9 @@ def cmd_upload(a):
         cur.execute("insert into media.media_attachments (media_id, owner_type, owner_id, role) values (%s,%s,%s,'primary')",
                     (x["mid"], x["rel"], eid))
         cur.execute("insert into public.media_hashes (hash_type, hash_value, media_id) values ('sha256',%s,%s)", (x["sha"], x["mid"]))
-    cur.execute(f"""insert into {SCHEMA}.kielotv_captions (video_id, content_version_id, locale, source_locale, cues)
-        values (%s,%s,'fi','fi',%s)""", (eid, vid, Json(cues)))
-    cur.execute(f"select k.cues, v.data from {SCHEMA}.kielotv_captions k join {SCHEMA}.content_versions v on v.id=k.content_version_id where v.id=%s", (vid,))
+    cur.execute(f"""insert into {schema}.kielotv_captions (video_id, content_version_id, locale, source_locale, cues)
+        values (%s,%s,%s,%s,%s)""", (eid, vid, lang, lang, Json(cues)))
+    cur.execute(f"select k.cues, v.data from {schema}.kielotv_captions k join {schema}.content_versions v on v.id=k.content_version_id where v.id=%s", (vid,))
     got_cues, got_data = cur.fetchone()
     if got_cues != cues or got_data != data:
         conn.rollback(); sys.exit(f"verification failed; DB rolled back (GCS objects remain: rollback {rec})")
@@ -204,13 +209,14 @@ def cmd_rollback(a):
     rec = json.load(open(a.record))
     eid, mids = rec["entry_id"], rec["media_ids"]
     conn = connect(readonly=not a.yes); cur = conn.cursor()
-    cur.execute(f"select title from {SCHEMA}.content_entries where id=%s", (eid,))
+    schema = rec.get("schema", SCHEMA)  # records from before --lang existed are Finnish
+    cur.execute(f"select title from {schema}.content_entries where id=%s", (eid,))
     row = cur.fetchone()
     print(f"rollback {rec['title']!r} entry {eid} (in DB: {bool(row)}), {len(mids)} media, GCS {rec['gcs_prefix']}")
     if not a.yes:
         print("dry-run only; re-run with --yes to delete"); return
-    cur.execute(f"delete from {SCHEMA}.kielotv_captions where video_id=%s", (eid,))
-    cur.execute(f"delete from {SCHEMA}.content_entries where id=%s", (eid,))  # cascades content_versions
+    cur.execute(f"delete from {schema}.kielotv_captions where video_id=%s", (eid,))
+    cur.execute(f"delete from {schema}.content_entries where id=%s", (eid,))  # cascades content_versions
     cur.execute("delete from public.media_hashes where media_id = any(%s::uuid[])", (mids,))
     cur.execute("delete from media.media_assets where media_id = any(%s::uuid[]) and related_entity_id=%s", (mids, eid))  # cascades attachments
     conn.commit()
@@ -223,6 +229,7 @@ def main():
     sub = p.add_subparsers(required=True)
     sub.add_parser("status").set_defaults(fn=cmd_status)
     u = sub.add_parser("upload"); u.add_argument("story_dir"); u.add_argument("--music")
+    u.add_argument("--lang", default="fi", choices=sorted(LANGS), help="story/content locale: fi -> cms_fi, sv -> cms_sv (default fi)")
     u.add_argument("--thumb", type=int, default=1, help="page number used as thumbnail (default 1 = cover)")
     u.add_argument("--cefr", default="A1", choices=["A1", "A2", "B1", "B2", "C1", "C2"])
     u.add_argument("--yes", action="store_true"); u.set_defaults(fn=cmd_upload)

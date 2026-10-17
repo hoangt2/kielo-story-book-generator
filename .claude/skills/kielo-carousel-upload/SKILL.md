@@ -5,7 +5,7 @@ description: Publish a generated story book from archives/ as a Finnish KieloTV 
 
 # Kielo carousel upload
 
-Turns `archives/<story>/` into a published `image-carousel` in `cms_fi`, identical in shape to the ones the admin UI made (reference: "Kesäpäivä laiturilla"). **Don't use the admin UI** (admin.kielo.app); everything goes directly to GCP.
+Turns `archives/fi/<story>/` into a published `image-carousel` in `cms_fi`, identical in shape to the ones the admin UI made (reference: "Kesäpäivä laiturilla"). **Don't use the admin UI** (admin.kielo.app); everything goes directly to GCP.
 
 - **Slides** = `images/page_1.png … page_N.png` (text-free). Never `cards/` (text burned in).
 - **Captions** = `data/story.json` `pages[].text_fi`, one cue per slide, 5 s each, slide 0 = cover = `title_fi`, no `support_text`.
@@ -31,9 +31,9 @@ Needs `ffmpeg`/`ffprobe` (brew).
 
 ## Workflow
 
-1. **Pick the story.** `$PY $S/carousel.py status` lists every `archives/*` story as `UPLOADED` or `new` (matched by `title_fi`), with page count and whether music exists. "Next story" = the oldest `new` one. Show the user its title and page texts.
-2. **Music.** `python3 $S/gen_music.py archives/<story> --extra "<mood + instruments for this story>"`. The prompt already includes the story's English page text plus "slow, soft, even volume, no vocals"; `--extra` adds the setting/mood (e.g. "Cozy Finnish winter living room: soft acoustic guitar, warm felt piano, light glockenspiel, ~80 BPM."). Saves `audio/background_music.mp3` + `background_music.json`. Send the mp3 to the user. `--seconds N` overrides the length if they want a longer loop.
-3. **Dry-run.** `$PY $S/carousel.py upload archives/<story>` (options: `--thumb N` page used as thumbnail, default 1 = cover; `--cefr A1|A2`, default A1; `--music other.mp3`). It refuses if a carousel with that title already exists or an image is missing, and notes files whose bytes were uploaded before. Show the user the table.
+1. **Pick the story.** `$PY $S/carousel.py status` lists every `archives/fi/*` story as `UPLOADED` or `new` (matched by `title_fi`), with page count and whether music exists. "Next story" = the oldest `new` one. Show the user its title and page texts.
+2. **Music.** `python3 $S/gen_music.py archives/fi/<story> --extra "<mood + instruments for this story>"`. The prompt already includes the story's English page text plus "slow, soft, even volume, no vocals"; `--extra` adds the setting/mood (e.g. "Cozy Finnish winter living room: soft acoustic guitar, warm felt piano, light glockenspiel, ~80 BPM."). Saves `audio/background_music.mp3` + `background_music.json`. Send the mp3 to the user. `--seconds N` overrides the length if they want a longer loop.
+3. **Dry-run.** `$PY $S/carousel.py upload archives/fi/<story>` (options: `--thumb N` page used as thumbnail, default 1 = cover; `--cefr A1|A2`, default A1; `--music other.mp3`). It refuses if a carousel with that title already exists or an image is missing, and notes files whose bytes were uploaded before. Show the user the table.
 4. **Upload** after approval: same command with `--yes`. It uploads to GCS, inserts all DB rows in one transaction, reads them back (`verified equal: True`), and checks every public URL returns 200. It writes a rollback record to `~/.cache/kielo-carousel-upload/rollback/<id8>-<slug>.json`.
 5. **Report**: title, entry id, slides/captions, music length, URLs OK, rollback record path. Optionally confirm with `status` (now `UPLOADED`).
 

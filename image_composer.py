@@ -12,6 +12,12 @@ ASPECT_RATIO_CONFIGS = {
 }
 DEFAULT_ASPECT_RATIO = "9:16"
 
+# Social apps (TikTok, Reels, Shorts) cover the top edge and a tall strip at the bottom
+# (account name, caption, buttons). On 9:16 cards the text block stays between these.
+SAFE_TOP_FRAC = 0.15
+SAFE_BOTTOM_FRAC = 0.80
+TEXT_BLOCK_FRAC = 0.27   # tallest the text block may be, as a share of the card height
+
 # Font candidates
 FONT_CANDIDATES_BOLD = [
     "arialbd.ttf", 
@@ -213,7 +219,7 @@ def _draw_text_block(draw, text, font, start_y, color, canvas_width, max_width, 
     
     return current_y
 
-def _draw_text_block_with_shadow(draw, text, font, start_y, color, canvas_width, max_width, line_spacing=15, shadow_color="#00000080", shadow_offset=2):
+def _draw_text_block_with_shadow(draw, text, font, start_y, color, canvas_width, max_width, line_spacing=15, shadow_color="#00000080", shadow_offset=2, shadow_spread=3):
     """Draw a centered text block with drop shadow for readability on images."""
     lines = _wrap_text_to_width(draw, text, font, max_width)
     current_y = start_y
@@ -228,8 +234,10 @@ def _draw_text_block_with_shadow(draw, text, font, start_y, color, canvas_width,
         bbox = draw.textbbox((0, 0), line, font=font)
         text_width = bbox[2] - bbox[0]
         x = (canvas_width - text_width) / 2
-        # Draw shadow
-        draw.text((x + shadow_offset, current_y + shadow_offset), line, font=font, fill=shadow_color)
+        # Draw shadow: a dark copy of the text, thickened a little so white text stays readable
+        # on light walls and skies (there is no background box behind the text)
+        draw.text((x + shadow_offset, current_y + shadow_offset), line, font=font, fill="#000000",
+                  stroke_width=shadow_spread, stroke_fill="#000000")
         # Draw text
         draw.text((x, current_y), line, font=font, fill=color)
         current_y += line_height + line_spacing
@@ -237,11 +245,13 @@ def _draw_text_block_with_shadow(draw, text, font, start_y, color, canvas_width,
     return current_y
 
 
-def create_story_card(image_path, main_text, english_text, output_path, aspect_ratio=None):
+def create_story_card(image_path, main_text, english_text, output_path, aspect_ratio=None, text_position=None):
     """
     Composites an image and bilingual text into a story card.
-    
-    For 9:16 (default): Full-bleed image with text overlaid on a gradient at the bottom.
+
+    For 9:16 (default): Full-bleed image with text overlaid on a gradient at the bottom,
+    or at the top when that keeps the characters clear (text_position "top"/"bottom"
+    forces one; None lets a vision model decide, see text_zone.py).
     For other ratios: Image at top with text area below.
     """
     if aspect_ratio is None:
@@ -252,19 +262,21 @@ def create_story_card(image_path, main_text, english_text, output_path, aspect_r
     CANVAS_HEIGHT = config["height"]
     
     if aspect_ratio == "9:16":
-        _create_fullbleed_card(image_path, main_text, english_text, output_path, CANVAS_WIDTH, CANVAS_HEIGHT)
+        _create_fullbleed_card(image_path, main_text, english_text, output_path, CANVAS_WIDTH, CANVAS_HEIGHT,
+                               text_position=text_position)
     else:
         _create_split_card(image_path, main_text, english_text, output_path, CANVAS_WIDTH, CANVAS_HEIGHT)
 
 
-def _create_fullbleed_card(image_path, main_text, english_text, output_path, canvas_width, canvas_height):
+def _create_fullbleed_card(image_path, main_text, english_text, output_path, canvas_width, canvas_height,
+                           text_position=None):
     """
     9:16 full-screen vertical card: image fills the entire canvas,
-    text is overlaid on a dark gradient at the bottom.
+    the text (white with a shadow, no background box) sits inside the social-media safe
+    area, never at the very top or bottom edge: low on the card by default, or at the
+    upper end of the safe area when the lower part would cover main characters.
     """
-    MARGIN = 60
-    PADDING = 40
-    TEXT_ZONE_HEIGHT = int(canvas_height * 0.35)  # Bottom 35% for text overlay
+    SIDE_MARGIN = 120   # also keeps text clear of the like/share buttons on the right
     
     # Create canvas
     canvas = Image.new("RGB", (canvas_width, canvas_height), "#000000")
@@ -297,55 +309,53 @@ def _create_fullbleed_card(image_path, main_text, english_text, output_path, can
         print(f"Error loading image {image_path}: {e}")
         return
     
-    # Draw gradient overlay at bottom for text readability
-    gradient = Image.new("RGBA", (canvas_width, TEXT_ZONE_HEIGHT), (0, 0, 0, 0))
-    gradient_draw = ImageDraw.Draw(gradient)
-    
-    for y in range(TEXT_ZONE_HEIGHT):
-        # Gradient from transparent to semi-opaque black
-        alpha = int(200 * (y / TEXT_ZONE_HEIGHT))
-        gradient_draw.line([(0, y), (canvas_width, y)], fill=(0, 0, 0, alpha))
-    
-    # Paste gradient at the bottom
-    canvas = canvas.convert("RGBA")
-    canvas.paste(gradient, (0, canvas_height - TEXT_ZONE_HEIGHT), gradient)
-    canvas = canvas.convert("RGB")
-    
-    draw = ImageDraw.Draw(canvas)
-    
-    # Text layout within the gradient zone
-    max_text_width = canvas_width - (2 * (MARGIN + PADDING))
-    text_start_y = canvas_height - TEXT_ZONE_HEIGHT + int(TEXT_ZONE_HEIGHT * 0.15)
-    text_bottom_limit = canvas_height - MARGIN
-    available_height = text_bottom_limit - text_start_y
-    
+    # Where does the text go? A vision model finds the characters; the caption takes the
+    # band (top or bottom) that covers less of them. Any problem means the usual bottom.
+    if text_position not in ("top", "bottom"):
+        try:
+            from text_zone import choose_zone
+            text_position = choose_zone(img)
+        except Exception as e:
+            print(f"Text zone check skipped: {e}")
+            text_position = "bottom"
+    at_top = text_position == "top"
+
+    max_text_width = canvas_width - 2 * SIDE_MARGIN
+    safe_top = int(canvas_height * SAFE_TOP_FRAC)
+    safe_bottom = int(canvas_height * SAFE_BOTTOM_FRAC)
+    block_max = int(canvas_height * TEXT_BLOCK_FRAC)
+
     # Font sizing
-    main_max_height = available_height * 0.6
-    english_max_height = available_height * 0.35
-    
+    draw = ImageDraw.Draw(canvas)
     font_fi, actual_size_fi = _find_optimal_font_size(
-        draw, main_text, 64, max_text_width, main_max_height, FONT_CANDIDATES_BOLD
+        draw, main_text, 64, max_text_width, block_max * 0.6, FONT_CANDIDATES_BOLD
     )
     font_en, actual_size_en = _find_optimal_font_size(
-        draw, english_text, 44, max_text_width, english_max_height, FONT_CANDIDATES_REG
+        draw, english_text, 44, max_text_width, block_max * 0.35, FONT_CANDIDATES_REG
     )
-    
     print(f"Main font size: {actual_size_fi}px, English font size: {actual_size_en}px (fullbleed)")
-    
-    # Draw main text (white with shadow)
+
+    # Measure the whole text block on a scratch canvas first, so it can be placed exactly
+    scratch = ImageDraw.Draw(Image.new("RGB", (canvas_width, canvas_height)))
+    block_h = _draw_text_block_with_shadow(scratch, main_text, font_fi, 0, "#FFFFFF",
+                                           canvas_width, max_text_width) + 20
+    block_h = _draw_text_block_with_shadow(scratch, english_text, font_en, block_h, "#CCCCCC",
+                                           canvas_width, max_text_width)
+
+    # Top: block starts at the top of the safe area. Bottom: block ends at its lower edge.
+    text_start_y = safe_top if at_top else safe_bottom - block_h
+
+    # Draw main text (white with shadow), then English (light grey with shadow)
     current_y = _draw_text_block_with_shadow(
         draw, main_text, font_fi, text_start_y, "#FFFFFF",
         canvas_width, max_text_width
     )
-    
     current_y += 20
-    
-    # Draw English text (light grey with shadow)
     _draw_text_block_with_shadow(
         draw, english_text, font_en, current_y, "#CCCCCC",
         canvas_width, max_text_width
     )
-    
+
     canvas.save(output_path)
     print(f"Saved fullbleed story card to {output_path}")
 

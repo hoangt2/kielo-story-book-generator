@@ -6,7 +6,7 @@ import google.generativeai as genai
 from google import genai as imagen_client
 from google.genai import types
 from prompts import IMAGE_STYLE_GUIDE
-from cinematography import camera_directive, camera_reminder, framing_note
+from cinematography import camera_directive, camera_reminder, framing_note, fullbleed_lead
 from image_composer import create_story_card
 import time
 
@@ -208,6 +208,68 @@ def generate_character_model(description, output_path):
         print(f"Error generating character model: {e}")
         return False
 
+def _safe_name(name):
+    return "".join(x for x in name if x.isalnum())
+
+
+def find_character_models(characters, images_dir):
+    """Returns [(name, path)] for every character whose model sheet exists in images_dir."""
+    found = []
+    for char in characters:
+        name = char.get("name", "Unknown")
+        path = os.path.join(images_dir, f"character_model_{_safe_name(name)}.png")
+        if os.path.exists(path):
+            found.append((name, path))
+    return found
+
+
+def build_character_reference(models, output_path, height=768):
+    """
+    Returns one reference image covering EVERY character, so each page keeps all of
+    them consistent (the image model only accepts one reference). One character: its
+    model sheet is used as is. Several: the sheets are placed side by side, left to
+    right in the order given, and saved to output_path.
+    """
+    if not models:
+        return None
+    if len(models) == 1:
+        return models[0][1]
+    from PIL import Image
+    sheets = []
+    for _, path in models:
+        img = Image.open(path).convert("RGB")
+        sheets.append(img.resize((max(1, int(img.width * height / img.height)), height)))
+    combined = Image.new("RGB", (sum(s.width for s in sheets), height), "white")
+    x = 0
+    for s in sheets:
+        combined.paste(s, (x, 0))
+        x += s.width
+    combined.save(output_path)
+    return output_path
+
+
+def character_context(characters, models=None):
+    """
+    The character text passed with every page prompt. One character: just its
+    description (unchanged behaviour). Several: every description plus an explicit
+    instruction to keep each one's face, hair, clothes and costume identical on every
+    page, naming the order they appear in the side-by-side reference image.
+    """
+    if not characters:
+        return ""
+    if len(characters) == 1:
+        return characters[0].get("description", "")
+    lines = [f"{c.get('name', 'Unknown')}: {c.get('description', '')}" for c in characters]
+    text = ("Recurring characters. Each one MUST keep exactly the same face, hair, beard, "
+            "clothes and costume on every page, even when only part of them is visible: "
+            + " ".join(lines))
+    if models and len(models) > 1:
+        order = ", ".join(name for name, _ in models)
+        text += (f" The reference image shows the characters side by side, left to right: "
+                 f"{order}. Match each character to the reference exactly.")
+    return text
+
+
 def generate_image(prompt, output_path, character_description="", reference_image_path=None, aspect_ratio=None):
     """Generates an image using Nano Banana (Gemini 2.5 Flash Image)."""
     if aspect_ratio is None:
@@ -221,7 +283,7 @@ def generate_image(prompt, output_path, character_description="", reference_imag
         # Lead with the camera direction — buried mid-paragraph it gets ignored —
         # then the characters, the page's own description, the style guide, and
         # any framing advice this canvas needs (9:16 cards overlay text).
-        full_prompt = (f"{camera_directive(prompt)} {character_description} {prompt} "
+        full_prompt = (f"{fullbleed_lead(aspect_ratio)}{camera_directive(prompt)} {character_description} {prompt} "
                        f"{IMAGE_STYLE_GUIDE}{framing_note(aspect_ratio)}"
                        f"{camera_reminder(prompt)}")
         
@@ -270,6 +332,52 @@ def generate_image(prompt, output_path, character_description="", reference_imag
         img.save(output_path)
         print("Created placeholder image due to API error.")
         return True
+
+def looks_inset(image_path, band=0.03, white=235, max_white=0.35):
+    """
+    True when the picture is an inset illustration floating in white space (a white or
+    near-white margin on any side) instead of filling the canvas. Looks at a thin band
+    along each edge and flags the picture when one band is mostly white.
+    """
+    from PIL import Image
+    im = Image.open(image_path).convert("RGB")
+    w, h = im.size
+    bw, bh = max(2, int(w * band)), max(2, int(h * band))
+    bands = [im.crop((0, 0, w, bh)), im.crop((0, h - bh, w, h)),
+             im.crop((0, 0, bw, h)), im.crop((w - bw, 0, w, h))]
+    for b in bands:
+        px = list(b.getdata())
+        if sum(1 for p in px if min(p) > white) / len(px) > max_white:
+            return True
+    return False
+
+
+def generate_image_fullbleed(prompt, output_path, character_description="", reference_image_path=None,
+                             aspect_ratio=None, max_retries=2):
+    """
+    generate_image, but on 9:16 full-bleed cards a picture that came back inset with white
+    margins is drawn again (up to max_retries more times) so the art fills the page.
+    The last attempt is kept if every try is inset.
+    """
+    ok = generate_image(prompt, output_path, character_description, reference_image_path,
+                        aspect_ratio=aspect_ratio)
+    if not ok or aspect_ratio != "9:16":
+        return ok
+    for attempt in range(max_retries):
+        try:
+            inset = looks_inset(output_path)
+        except Exception as e:
+            print(f"Inset check skipped: {e}")
+            return ok
+        if not inset:
+            return ok
+        print(f"Picture has white margins; drawing it again ({attempt + 1}/{max_retries})...")
+        ok = generate_image(prompt, output_path, character_description, reference_image_path,
+                            aspect_ratio=aspect_ratio)
+        if not ok:
+            return ok
+    return ok
+
 
 def export_prompts(story, output_dir="output", status_callback=None):
     """
@@ -416,9 +524,13 @@ def process_story(story, output_dir="output", status_callback=None, aspect_ratio
         else:
             log(f"Failed to generate model for {name}")
 
-    # Main character description for fallback/context
-    main_char_desc = characters[0].get("description", "") if characters else ""
-    main_model_path = list(character_models.values())[0] if character_models else None
+    # Every character goes into the reference image and the prompt text, so none
+    # of them drifts from page to page (not just the first one).
+    models = [(c.get("name", "Unknown"), character_models[c.get("name", "Unknown")])
+              for c in characters if c.get("name", "Unknown") in character_models]
+    main_model_path = build_character_reference(
+        models, os.path.join(dirs["images"], "character_reference.png"))
+    main_char_desc = character_context(characters, models)
 
     # 3. Process Pages
     for page in story.get("pages", []):
@@ -433,8 +545,8 @@ def process_story(story, output_dir="output", status_callback=None, aspect_ratio
 
         # Generate Image
         full_prompt = f"{page.get('image_description')}"
-        # We pass the main character's description as a base, but the prompt should now be verbose enough
-        success = generate_image(full_prompt, image_path, main_char_desc, main_model_path, aspect_ratio=aspect_ratio)
+        # All characters' descriptions and one combined reference go with every page
+        success = generate_image_fullbleed(full_prompt, image_path, main_char_desc, main_model_path, aspect_ratio=aspect_ratio)
         
         if success:
             # Composite
@@ -494,23 +606,16 @@ def regenerate_page_image(page_number, output_dir="output", aspect_ratio=None):
         
         # Get character context
         characters = story.get("characters", [])
-        main_char_desc = characters[0].get("description", "") if characters else ""
-        
-        # Try to find existing character model
-        # We need to guess the filename or re-scan, but for now let's assume one exists if we can find it
-        # Or just pass None as model path if we don't track it easily. 
-        # Actually checking for any character model file matching the first character is a good best-effort.
-        main_model_path = None
-        if characters:
-             name = characters[0].get("name", "Unknown")
-             safe_name = "".join(x for x in name if x.isalnum())
-             possible_path = os.path.join(images_dir, f"character_model_{safe_name}.png")
-             if os.path.exists(possible_path):
-                 main_model_path = possible_path
-        
+        # Use every character's saved model sheet (side by side in one reference image)
+        # and every description, so the redrawn page matches the rest of the story.
+        models = find_character_models(characters, images_dir)
+        main_model_path = build_character_reference(
+            models, os.path.join(images_dir, "character_reference.png"))
+        main_char_desc = character_context(characters, models)
+
         # Generate Image
         full_prompt = f"{page.get('image_description')}"
-        success = generate_image(full_prompt, image_path, main_char_desc, main_model_path, aspect_ratio=aspect_ratio)
+        success = generate_image_fullbleed(full_prompt, image_path, main_char_desc, main_model_path, aspect_ratio=aspect_ratio)
         
         if success:
             # Composite

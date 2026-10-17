@@ -364,7 +364,7 @@ def camera_reminder(image_description):
 # (see image_composer._create_fullbleed_card), so anything important down there
 # is lost.
 _FULLBLEED_FRAMING_NOTE = """
-Framing for this canvas: text will be laid over the bottom third of this image. Keep faces, eyes and the main action inside the upper two thirds, and leave the bottom third as calm, simple background (ground, snow, water, floor, sky).
+Framing for this canvas: the illustration must fill the ENTIRE image edge to edge with a complete painted background (walls, ground, sky, floor). No white margins, no borders, no frames, no rounded or inset panels, no blank white areas, and each character appears only once. Text will be laid over the bottom third, so keep faces, eyes and the main action inside the upper two thirds, and let the bottom third continue the scene as calm, simple background (ground, snow, water, floor, sky) instead of leaving it empty.
 """
 
 
@@ -372,4 +372,16 @@ def framing_note(aspect_ratio):
     """Returns canvas-specific framing advice, or "" when the canvas is clean."""
     if aspect_ratio == "9:16":
         return _FULLBLEED_FRAMING_NOTE
+    return ""
+
+
+def fullbleed_lead(aspect_ratio):
+    """
+    One short sentence for the very START of the prompt on full-bleed canvases. The
+    image model follows the opening of a prompt best, and a note placed only at the end
+    was often ignored (pictures came back inset with white margins).
+    """
+    if aspect_ratio == "9:16":
+        return ("Full-bleed illustration that fills the whole canvas edge to edge with a "
+                "complete background: no white border, no frame, no inset panel. ")
     return ""

@@ -62,3 +62,6 @@ htmlcov/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+# Caption-placement analysis cache (text_zone.py)
+.text_zone_cache.json
