@@ -300,6 +300,16 @@ Pay extra attention to:
 - **IMPORTANT**: In every `image_description`, you MUST repeat the **FULL VISUAL DESCRIPTION** of ALL characters present in the scene. Do NOT just use their names.
     - BAD: "Sofia is smiling."
     - GOOD: "Sofia, a young girl with curly blonde hair wearing a blue dress, is smiling."
+- Each character `description` names a clear skin colour (for example "light skin with a warm peach tone") and, if the story goes outdoors, the character's outdoor clothes (coat, scarf, hat) — these stay the same on every page.
+
+**CRITICAL INSTRUCTION: EVERY PICTURE MUST MAKE SENSE FOR THE STORY**
+Each picture is drawn on its own, from its `image_description` alone, so the description must carry the story logic:
+- **Who is there:** name everyone visible. When the text implies a group (a choir, a class, colleagues, a team, a café full of people), show the group as background people, e.g. "about ten other adults of mixed ages, clearly different people from <main characters>". A main character who is alone on the page is described as alone, and the description says who is NOT in the picture (e.g. "Erik is NOT in this picture").
+- **Who is not there yet:** a character appears only from the page where the text brings them in. Someone who has not met the hero yet is not walking beside them.
+- **Same place, same words:** give each place one short fixed description (e.g. "a bright parish hall with a high wooden-beamed ceiling, tall arched windows and an upright piano") and repeat it word for word on every page set there.
+- **The page's action:** the picture shows what that page's sentences say happens — not a later or earlier step, and not just a face when the text says "the pies go into the oven".
+- **Same clothes:** repeat each character's clothes, including outdoor clothes, on every page they appear.
+- **Local customs:** in a Finnish or Swedish home, people wear socks or slippers, never outdoor shoes.
 
 **CRITICAL INSTRUCTION: NARRATIVE PERSPECTIVE CONSISTENCY**
 - Choose ONE narrative perspective for the entire story and keep it consistent on EVERY page.

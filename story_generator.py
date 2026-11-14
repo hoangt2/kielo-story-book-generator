@@ -121,11 +121,20 @@ def main(status_callback=None, level="A1", max_retries=5, theme_category=None, c
     parser.add_argument("--setting", default=custom_setting, help="Custom setting for the story")
     parser.add_argument("--aspect-ratio", default=aspect_ratio, choices=list(ASPECT_RATIOS.keys()), help="Image aspect ratio (default: 9:16)")
     parser.add_argument("--prompts-only", action="store_true", default=prompts_only, help="Export image prompts only (no image generation)")
-    
+    parser.add_argument("--picture-check", dest="picture_check", action="store_true",
+                        help="After drawing, check every picture against the story and redraw the ones that do not fit "
+                             "(off by default: the redraws rarely fixed a page, Tung 2026-11-14)")
+
     # Check if running from script or module
     try:
         args = parser.parse_args()
-    except:
+    except SystemExit as e:
+        if e.code == 0:  # --help: stop here instead of generating a story with the defaults
+            raise
+        args = None
+    except Exception:
+        args = None
+    if args is None:
         # Create a dummy namespace if parsing fails (e.g. when called from app.py)
         args = argparse.Namespace(
             output_dir="output", 
@@ -138,6 +147,7 @@ def main(status_callback=None, level="A1", max_retries=5, theme_category=None, c
             aspect_ratio=aspect_ratio,
             prompts_only=prompts_only,
             language=language,
+            picture_check=False,
         )
 
     args.language = normalize_language(args.language)
@@ -171,6 +181,10 @@ def main(status_callback=None, level="A1", max_retries=5, theme_category=None, c
                 export_prompts(story, args.output_dir, status_callback)
             else:
                 process_story(story, args.output_dir, status_callback, aspect_ratio=args.aspect_ratio)
+                if getattr(args, "picture_check", False):
+                    from story_checker import check_story
+                    log("Checking every picture against the story...")
+                    check_story(args.output_dir, aspect_ratio=args.aspect_ratio, log=log)
             return True  # Success
         else:
             log(f"Grammar check failed: {feedback}")
@@ -188,7 +202,11 @@ def generate_character_model(description, output_path):
     try:
         client = imagen_client.Client(api_key=GOOGLE_API_KEY)
         # Prompt for a character sheet to get a consistent reference
-        prompt = f"Character sheet showing the following character(s): {description}. Multiple views if possible, white background. {IMAGE_STYLE_GUIDE}"
+        # The white background made the model leave skin uncoloured too ("white like a ghost",
+        # Tung 2026-11-14), and every page copies the sheet, so the skin colour is asked for here.
+        prompt = (f"Character sheet showing the following character(s): {description}. Multiple views if possible, "
+                  f"white background. Skin is clearly filled in with the character's skin colour (a warm, natural tone), "
+                  f"never left white or uncoloured like the background. {IMAGE_STYLE_GUIDE}")
         
         response = client.models.generate_content(
             model='gemini-2.5-flash-image',
@@ -558,8 +576,6 @@ def process_story(story, output_dir="output", status_callback=None, aspect_ratio
                 aspect_ratio=aspect_ratio
             )
 
-        # Sleep to avoid rate limits
-        time.sleep(2)
 
     log("Story generation complete!")
 

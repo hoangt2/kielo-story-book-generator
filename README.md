@@ -78,6 +78,32 @@ python story_generator.py --level Intermediate --topic "A summer day in Turku"
 python story_generator.py --output_dir my_stories --level Advanced --pages 12
 ```
 
+### Picture check
+
+A second opinion on the pictures, off by default. `story_generator.py --picture-check` runs it after drawing;
+it runs on its own too:
+
+```bash
+python story_checker.py output_sv                # check, redraw what does not fit, rebuild story.pdf
+python story_checker.py output_sv --report-only  # only report
+python story_checker.py output_sv --pages 2,6    # only these pages
+```
+
+How it works, in two steps so the model answers plain questions and the code decides:
+1. One text-only call reads the whole story and writes, per page, what its picture must show: the place, who
+   cannot be there yet, whether it is a group scene, whether it is inside a home, and the one key action
+   (`data/picture_plan.json`; delete it after editing the story text).
+2. Per picture, factual questions: which main characters are visible, how many other people, is it that place,
+   is the key action shown, what is on everyone's feet, is anyone drawn twice, is skin uncoloured, are there
+   panels, words or a white border. A page that breaks the story gets a rewritten `image_description` and is
+   redrawn, at most twice. Every answer is in `data/picture_check.json`.
+
+Tested on 2026-11-14: it points at the right pages, but its redraws rarely fixed one (it keeps the best version,
+so it never makes a page worse). Pictures with small AI mistakes are accepted; use `--report-only` to see where
+they are. It catches real problems (a choir scene with no choir, a friend who appears too early, the wrong room, a person
+drawn twice, shoes indoors), but it can still be wrong about small details such as hidden feet. Pages it gives
+up on are listed at the end: look at those yourself.
+
 ### Clean Up
 
 Remove generated files:
