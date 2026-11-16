@@ -1,3 +1,4 @@
+import random
 import os
 import json
 import argparse
@@ -24,6 +25,10 @@ from grammar_checker import check_grammar
 from history_manager import load_history, save_to_history, get_used_themes
 from cleanup import cleanup
 from languages import DEFAULT_LANGUAGE, LANGUAGES, normalize_language, text_key, title_key
+
+# Share of super simple stories when the style is picked at random (Tung, 2026-11-16).
+SIMPLE_WEIGHT = 0.7
+
 
 def generate_story_concept(level="A1", theme_category=None, custom_topic=None, page_count=10, custom_setting=None, grammar_feedback=None, language=DEFAULT_LANGUAGE, simple=False):
     """Generates the story structure using Gemini Pro."""
@@ -82,6 +87,7 @@ def generate_story_concept(level="A1", theme_category=None, custom_topic=None, p
         story_data = json.loads(text)
         # Record the language so later steps (cards, prompts export, regenerate) pick the right text
         story_data["language"] = language
+        story_data["style"] = "simple" if simple else level.lower()
         return story_data
     except json.JSONDecodeError:
         print("Error: Failed to parse JSON from Gemini response.")
@@ -124,7 +130,12 @@ def main(status_callback=None, level="A1", max_retries=5, theme_category=None, c
     parser.add_argument("--prompts-only", action="store_true", default=prompts_only, help="Export image prompts only (no image generation)")
     parser.add_argument("--simple", action="store_true",
                         help="Super simple story: one 3-6 word sentence per page, only the most common words "
-                             "(like the early Kielo book 'Liisa ja Antti ovat Turussa.')")
+                             "(like the early Kielo book 'Liisa ja Antti ovat Turussa.'); same as --style simple")
+    parser.add_argument("--style", choices=["random", "simple", "level"], default="random",
+                        help="random (default): super simple or a --level story, picked at random with "
+                             "--simple-weight; simple; level: the --level story only")
+    parser.add_argument("--simple-weight", type=float, default=SIMPLE_WEIGHT,
+                        help=f"Chance of a super simple story when --style random (default {SIMPLE_WEIGHT})")
     parser.add_argument("--picture-check", dest="picture_check", action="store_true",
                         help="After drawing, check every picture against the story and redraw the ones that do not fit "
                              "(off by default: the redraws rarely fixed a page, Tung 2026-11-14)")
@@ -153,9 +164,19 @@ def main(status_callback=None, level="A1", max_retries=5, theme_category=None, c
             language=language,
             picture_check=False,
             simple=False,
+            style="level",
+            simple_weight=SIMPLE_WEIGHT,
         )
 
     args.language = normalize_language(args.language)
+
+    # Super simple or a level story (Tung, 2026-11-16: "randomly generate very simple story and A1 story
+    # ... diversity and more weight on the simple story").
+    style = "simple" if getattr(args, "simple", False) else getattr(args, "style", "level")
+    if style == "random":
+        style = "simple" if random.random() < getattr(args, "simple_weight", SIMPLE_WEIGHT) else "level"
+    args.simple = style == "simple"
+    log(f"Story style: {'super simple (one short sentence per page)' if args.simple else args.level}")
 
     # Clean up old output before starting
     log("Cleaning up previous output...")
@@ -170,7 +191,7 @@ def main(status_callback=None, level="A1", max_retries=5, theme_category=None, c
 
         log(f"Generating {LANGUAGES[args.language]['name']} story concept for {args.level} level, theme: {theme_label}, pages: {args.pages}, setting: {args.setting} (Attempt {attempt}/{args.max_retries})...")
 
-        story = generate_story_concept(level=args.level, theme_category=args.theme, custom_topic=args.topic, page_count=args.pages, custom_setting=args.setting, grammar_feedback=grammar_feedback, language=args.language, simple=getattr(args, "simple", False))
+        story = generate_story_concept(level=args.level, theme_category=args.theme, custom_topic=args.topic, page_count=args.pages, custom_setting=args.setting, grammar_feedback=grammar_feedback, language=args.language, simple=args.simple)
         if not story:
             log("Failed to generate story concept. Retrying...")
             continue
