@@ -191,7 +191,26 @@ LEVEL_CONSTRAINTS = {
 }
 
 
-def get_story_prompt(level="A1", previous_stories=None, theme_category=None, used_themes=None, custom_topic=None, page_count=10, custom_setting=None, grammar_feedback=None, language="fi"):
+# "Simple" stories: one short sentence per page, very common words only.
+# Modelled on the early Kielo book that went viral ("Liisa ja Antti ovat Turussa." /
+# "Liisa and Antti are in Turku." on one page). Tung, 2026-11-16.
+SIMPLE_PAGE_RULES = """
+**SUPER SIMPLE STORY (overrides the length rules above):**
+- Every page, the cover excepted, has EXACTLY ONE sentence: 3-6 words, one clause, no commas, ends with "." "!" or "?".
+- Use only the ~100 most common words of the language, plus the characters' names and one real place name.
+  Prefer: to be, to have, to go, to come, to see, to eat, to drink, to buy, to like, to want, to sit, to walk,
+  colours, numbers, food, weather, family, home, shop, café, park, sea, boat, dog, cat, big, small, good, cold, warm.
+- At most ONE new word per page that a total beginner may not know; reuse words from earlier pages on purpose
+  (repetition is how the learner learns: "Liisa ja Antti ovat Turussa." ... "Liisa ja Antti ovat kahvilassa.").
+- Present tense, third person, statements and an occasional simple question. No negation chains, no subordinate clauses.
+- The pictures carry the story; the sentence names what the picture shows. The story still has a start, a small
+  surprise or joke, and an ending.
+- `text_en` is a plain, close translation of the one sentence (same meaning, natural English).
+- The title is 1-3 words.
+"""
+
+
+def get_story_prompt(level="A1", previous_stories=None, theme_category=None, used_themes=None, custom_topic=None, page_count=10, custom_setting=None, grammar_feedback=None, language="fi", simple=False):
     """
     Generate a story prompt based on the difficulty level, history, and theme.
 
@@ -212,6 +231,8 @@ def get_story_prompt(level="A1", previous_stories=None, theme_category=None, use
         constraints = SV_LEVEL_CONSTRAINTS.get(level, SV_LEVEL_CONSTRAINTS["A1"])
     else:
         constraints = LEVEL_CONSTRAINTS.get(level, LEVEL_CONSTRAINTS["A1"])
+    if simple:
+        constraints += SIMPLE_PAGE_RULES
     
     # Build history context
     history_context = ""

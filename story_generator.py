@@ -25,7 +25,7 @@ from history_manager import load_history, save_to_history, get_used_themes
 from cleanup import cleanup
 from languages import DEFAULT_LANGUAGE, LANGUAGES, normalize_language, text_key, title_key
 
-def generate_story_concept(level="A1", theme_category=None, custom_topic=None, page_count=10, custom_setting=None, grammar_feedback=None, language=DEFAULT_LANGUAGE):
+def generate_story_concept(level="A1", theme_category=None, custom_topic=None, page_count=10, custom_setting=None, grammar_feedback=None, language=DEFAULT_LANGUAGE, simple=False):
     """Generates the story structure using Gemini Pro."""
     global _current_theme
     language = normalize_language(language)
@@ -70,7 +70,8 @@ def generate_story_concept(level="A1", theme_category=None, custom_topic=None, p
         page_count=page_count,
         custom_setting=custom_setting,
         grammar_feedback=grammar_feedback,
-        language=language
+        language=language,
+        simple=simple
     )
 
     response = model.generate_content(prompt)
@@ -121,6 +122,9 @@ def main(status_callback=None, level="A1", max_retries=5, theme_category=None, c
     parser.add_argument("--setting", default=custom_setting, help="Custom setting for the story")
     parser.add_argument("--aspect-ratio", default=aspect_ratio, choices=list(ASPECT_RATIOS.keys()), help="Image aspect ratio (default: 9:16)")
     parser.add_argument("--prompts-only", action="store_true", default=prompts_only, help="Export image prompts only (no image generation)")
+    parser.add_argument("--simple", action="store_true",
+                        help="Super simple story: one 3-6 word sentence per page, only the most common words "
+                             "(like the early Kielo book 'Liisa ja Antti ovat Turussa.')")
     parser.add_argument("--picture-check", dest="picture_check", action="store_true",
                         help="After drawing, check every picture against the story and redraw the ones that do not fit "
                              "(off by default: the redraws rarely fixed a page, Tung 2026-11-14)")
@@ -148,6 +152,7 @@ def main(status_callback=None, level="A1", max_retries=5, theme_category=None, c
             prompts_only=prompts_only,
             language=language,
             picture_check=False,
+            simple=False,
         )
 
     args.language = normalize_language(args.language)
@@ -165,7 +170,7 @@ def main(status_callback=None, level="A1", max_retries=5, theme_category=None, c
 
         log(f"Generating {LANGUAGES[args.language]['name']} story concept for {args.level} level, theme: {theme_label}, pages: {args.pages}, setting: {args.setting} (Attempt {attempt}/{args.max_retries})...")
 
-        story = generate_story_concept(level=args.level, theme_category=args.theme, custom_topic=args.topic, page_count=args.pages, custom_setting=args.setting, grammar_feedback=grammar_feedback, language=args.language)
+        story = generate_story_concept(level=args.level, theme_category=args.theme, custom_topic=args.topic, page_count=args.pages, custom_setting=args.setting, grammar_feedback=grammar_feedback, language=args.language, simple=getattr(args, "simple", False))
         if not story:
             log("Failed to generate story concept. Retrying...")
             continue
